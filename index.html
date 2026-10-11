@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Six-Stage Exchange Simulator</title>
+<meta name="description" content="Interactive simulation of Meckler's six-stage dynamic symmetrical exchange model (JPIM Research Forum 2026), v4: two-sided negotiation, rising deal-breaker floors, shared installed base.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab-notebook instrument. Stage-grouped controls on the left, readouts on the right, stacking on phones. */
+:root{
+  --bg:#F3F5F7; --panel:#FFFFFF; --ink:#18212B; --muted:#5A6672; --rule:#D5DBE1;
+  --t:#2F5D8A; --e:#B4466A; --tc:#B07A12; --ok:#2E7D4F; --bad:#B33A2B; --neg:#7A5AA8; --accent:#2F5D8A;
+  --display:'Archivo',system-ui,sans-serif; --body:'Source Serif 4',Georgia,serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11161C; --panel:#18202A; --ink:#E6EBF0; --muted:#9AA6B2; --rule:#2C3743;
+  --t:#7FB0E0; --e:#E58AA8; --tc:#E0B24F; --ok:#6CC28F; --bad:#EE7B6B; --neg:#B79BE6; --accent:#7FB0E0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161C; --panel:#18202A; --ink:#E6EBF0; --muted:#9AA6B2; --rule:#2C3743;
+  --t:#7FB0E0; --e:#E58AA8; --tc:#E0B24F; --ok:#6CC28F; --bad:#EE7B6B; --neg:#B79BE6; --accent:#7FB0E0; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;padding-inline:16px;padding-block:24px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+header{display:flex;flex-direction:column;gap:8px;max-width:72ch}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,4.5vw,42px);line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:700;font-size:18px;margin:0;text-wrap:balance}
+h3{font-family:var(--display);font-weight:700;font-size:15px;margin:0}
+p{margin:0}
+.lede{color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.controls{gap:8px}
+.ctl{display:flex;flex-direction:column;gap:4px}
+.ctl label{font-family:var(--display);font-weight:500;font-size:14px;display:flex;justify-content:space-between;gap:8px}
+.ctl output{font-family:var(--mono);font-size:13px;color:var(--accent);white-space:nowrap}
+.ctl small{color:var(--muted);font-size:13px;line-height:1.4}
+.role{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--rule);border-radius:999px;padding:0 6px;margin-left:6px;font-weight:400}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px}
+.check{display:flex;gap:8px;align-items:flex-start;font-family:var(--display);font-size:14px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.seg button{font-family:var(--display);font-size:13px;padding:8px 6px;border:0;background:var(--panel);color:var(--ink);cursor:pointer}
+.seg button:last-child{grid-column:span 2}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--panel)}
+button:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font-family:var(--display);font-weight:700;font-size:14px;padding:10px 14px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer}
+.stage{border-top:1px solid var(--rule);padding-top:10px}
+.stage>summary{font-family:var(--display);font-weight:700;font-size:15px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;list-style:none}
+.stage>summary::-webkit-details-marker{display:none}
+.stage>summary::after{content:"+";font-family:var(--mono);color:var(--muted)}
+.stage[open]>summary::after{content:"−"}
+.stage>summary span{font-family:var(--mono);font-weight:400;font-size:12px;color:var(--muted)}
+.stagebody{display:flex;flex-direction:column;gap:14px;padding-top:12px}
+.readouts{display:flex;flex-direction:column;gap:24px;min-width:0}
+.chart{width:100%;height:240px;display:block}
+.chart.short{height:180px}
+.legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:2px;display:inline-block;flex:none}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:720px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--rule);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+th{font-family:var(--display);font-weight:500;color:var(--muted);font-size:13px;vertical-align:bottom}
+th:first-child,td:first-child{text-align:left;font-family:var(--display)}
+.vmap{min-width:640px}
+.vmap td,.vmap th{text-align:left;font-family:var(--body);font-size:14px;vertical-align:top}
+.vmap td:first-child{font-family:var(--display);white-space:nowrap}
+.best{color:var(--ok);font-weight:500}
+.note{font-size:14px;color:var(--muted);max-width:78ch}
+.pill{font-family:var(--mono);font-size:11px;padding:2px 6px;border-radius:999px;border:1px solid var(--rule);color:var(--muted)}
+.firmpick{display:flex;flex-wrap:wrap;gap:6px}
+.firmpick button{font-family:var(--display);font-size:13px;padding:6px 10px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--ink);cursor:pointer}
+.firmpick button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:700}
+details.doc{border-top:0}
+details.doc>summary{font-family:var(--display);font-weight:700;cursor:pointer}
+.spec{display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size:15px;max-width:78ch}
+code{font-family:var(--mono);font-size:13px}
+.trace{font-family:var(--mono);font-size:12.5px;line-height:1.6;max-height:260px;overflow:auto;border:1px solid var(--rule);border-radius:8px;padding:10px 12px;white-space:pre-wrap;color:var(--ink)}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <span class="eyebrow">v4 · A simulation of Meckler's six-stage dynamic symmetrical exchange model · JPIM RF 2026</span>
+  <h1>Who learns fast enough to close the deal?</h1>
+  <p class="lede">Four focal firms each trade with a stakeholder in the same market. Both sides build technical (T), emotional (E) and transaction-cost (TC) utility on S-curves, value what they receive against their own floors, and learn from every round. Floors are deal-breakers, and they rise. The installed base and complements grow the same way for everyone; firms differ only in how they allocate and how much they attend to. Every input, moderator and modifier the paper names at each stage interface has a control on the left.</p>
+  <noscript><p><strong>This page needs JavaScript to run the simulation.</strong> The variable map and the model specification below are readable without it.</p></noscript>
+</header>
+
+<div class="grid">
+  <aside class="panel controls" aria-label="Model settings">
+    <div class="btnrow">
+      <button class="btn" id="reseed">Run a new random market</button>
+      <button class="btn" id="reset">Reset to defaults</button>
+    </div>
+    <small class="note">Seed <span id="seed" class="pill"></span>. The table averages <span id="nruns">200</span> random markets.</small>
+
+    <details class="stage" open>
+      <summary>Stage 1 · Firm builds its package <span>RBV</span></summary>
+      <div class="stagebody" id="g1"></div>
+    </details>
+    <details class="stage">
+      <summary>Stage 2 · Exogenous augmentation <span>network</span></summary>
+      <div class="stagebody" id="g2"></div>
+    </details>
+    <details class="stage" open>
+      <summary>Stage 3 · Stakeholder values it <span>S-D logic</span></summary>
+      <div class="stagebody" id="g3">
+        <div class="ctl">
+          <span class="eyebrow">Who evaluates the offer</span>
+          <div class="seg" role="group" aria-label="Evaluator type">
+            <button id="rule-human" aria-pressed="true">Human</button>
+            <button id="rule-persona" aria-pressed="false">AI persona</button>
+            <button id="rule-agent" aria-pressed="false">Delegated agent</button>
+            <button id="rule-tcbuyer" aria-pressed="false">Commodity buyer</button>
+            <button id="rule-shift" aria-pressed="false">Human, then agents from midpoint</button>
+          </div>
+          <small id="rule-help"></small>
+        </div>
+      </div>
+    </details>
+    <details class="stage">
+      <summary>Stage 4 · Stakeholder's offer <span>power-dependence</span></summary>
+      <div class="stagebody" id="g4"></div>
+    </details>
+    <details class="stage">
+      <summary>Stage 5 · Return trip and signal <span>learning</span></summary>
+      <div class="stagebody" id="g5"></div>
+    </details>
+    <details class="stage" open>
+      <summary>Stage 6 · Firm values the return <span>negotiation loop</span></summary>
+      <div class="stagebody" id="g6"></div>
+    </details>
+  </aside>
+
+  <section class="readouts">
+    <div class="panel">
+      <h2>Resource bank over time</h2>
+      <canvas class="chart" id="bank" role="img" aria-label="Line chart of each focal firm's resource bank by period"></canvas>
+      <div class="legend" id="bank-legend"></div>
+    </div>
+    <div class="panel">
+      <h2>One firm, period by period</h2>
+      <div class="firmpick" id="firmpick" role="group" aria-label="Choose firm"></div>
+      <canvas class="chart" id="alloc" role="img" aria-label="Stacked bars of the chosen firm's spend on T, E and TC per period, with a strip showing each period's exchange status"></canvas>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--t)"></i>T spend</span><span><i class="sw" style="background:var(--e)"></i>E spend</span><span><i class="sw" style="background:var(--tc)"></i>TC spend</span>
+        <span><i class="sw" style="background:var(--ok)"></i>formalized</span><span><i class="sw" style="background:var(--neg)"></i>formalized after renegotiation</span><span><i class="sw" style="background:var(--muted)"></i>reinnovate</span><span><i class="sw" style="background:var(--bad)"></i>terminated or exited</span>
+      </div>
+      <div class="trace" id="trace" aria-label="Exchange log for the chosen firm"></div>
+    </div>
+    <div class="panel">
+      <h2>The shared environment</h2>
+      <canvas class="chart short" id="env" role="img" aria-label="Lines for installed base, complements, and the stakeholder's rising floors"></canvas>
+      <div class="legend"><span><i class="sw" style="background:var(--accent)"></i>installed base</span><span><i class="sw" style="background:var(--tc)"></i>complements</span><span><i class="sw" style="background:var(--t);opacity:.55"></i>T floor</span><span><i class="sw" style="background:var(--e);opacity:.55"></i>E floor</span><span><i class="sw" style="background:var(--muted)"></i>context shock</span></div>
+    </div>
+    <div class="panel">
+      <h2>Across <span id="nruns2">200</span> random markets</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Firm policy</th><th>Survived</th><th>Periods formalized</th><th>of those, renegotiated</th><th>Reinnovation cycles</th><th>Terminated</th><th>Wasted spend</th><th>Final bank</th><th>Partner surplus</th></tr></thead>
+        <tbody id="summary"></tbody>
+      </table></div>
+      <p class="note"><strong>Survived</strong>: still trading at the end (not out of resources, not terminated). <strong>Reinnovation cycles</strong>: periods with no deal, after which the firm re-runs Stages 1–6. <strong>Terminated</strong>: the firm walked away after more consecutive failures than its loop tolerance allows. <strong>Wasted spend</strong>: money put into a dimension already at the stakeholder's Maximum Demanded level. <strong>Partner surplus</strong>: the stakeholder's value received minus what it paid, summed over the run.</p>
+    </div>
+  </section>
+</div>
+
+<details class="panel doc" open>
+  <summary>Variable map: every interface in the paper, and its control</summary>
+  <div class="tablewrap"><table class="vmap">
+    <thead><tr><th>Stage</th><th>Independent input</th><th>Moderators and modifiers</th><th>Dependent output</th></tr></thead>
+    <tbody>
+      <tr><td>1 Firm creates</td><td>Resource bank (<em>starting bank</em>, <em>spend per period</em>); forecast of installed base and complements (<em>network attention</em>)</td><td>Dynamic capabilities (<em>conversion efficiency</em>); managerial attention (<em>attention budget</em>); slack vs shortage (<em>triage level</em>); path dependence (<em>pivot friction</em>); S-curve position; E volatility (<em>E decay</em>)</td><td>Stand-alone package: T, E, TC utility</td></tr>
+      <tr><td>2 Augmentation</td><td>Stand-alone package</td><td>Installed base and complements (<em>size</em>, <em>speed</em>, same for all firms); co-evolution (<em>growth per formalized exchange</em>); segment valence of the installed base on E; exogenous friction</td><td>Augmented package</td></tr>
+      <tr><td>3 Stakeholder values</td><td>Augmented package</td><td>Evaluator type (System 1 / System 2 routines); operant resources; friction abort; value-in-context shocks; Minimum Necessary floors (<em>rising</em>) and Maximum Demanded ceilings (<em>T drift</em>)</td><td>Phenomenologically assigned value; pass or deal-breaker</td></tr>
+      <tr><td>4 Stakeholder offers</td><td>Stakeholder resource bank (<em>income</em>, <em>value-to-resource rate</em>)</td><td>Power-dependence (<em>market alternatives</em>); opening share; the stakeholder's own S-curves for advocacy (E) and cooperation (TC)</td><td>Reciprocal package: payment, advocacy, cooperation</td></tr>
+      <tr><td>5 Return and signal</td><td>Reciprocal package</td><td>Complements on the return trip (payment rails); signal clarity (<em>signal noise</em>); absorptive capacity (<em>learning rate</em>, <em>attention budget</em>)</td><td>Augmented reciprocal package; information signal</td></tr>
+      <tr><td>6 Firm values</td><td>Augmented reciprocal package; signal</td><td>Firm's own floors (<em>payment floor</em>, <em>cooperation floor</em>, rising); tolerance for loops (<em>renegotiation rounds</em>, <em>reinnovation tolerance</em>)</td><td>Exchange status: Formalization, Renegotiation, Reinnovation, Termination</td></tr>
+    </tbody>
+  </table></div>
+</details>
+
+<details class="panel doc">
+  <summary>How the model works</summary>
+  <div class="spec">
+    <p><strong>One period is one pass through the six stages</strong>, with the Stage 4–6 negotiation loop running inside the period. All four firms face identical copies of the same stakeholder and the same shared environment, so differences come only from firm policy.</p>
+    <p><strong>S-curves.</strong> Each dimension's utility is a logistic function of a capability stock: <code>u(x) = L·(σ(k(x−m)) − σ(−km)) / (1 − σ(−km))</code>. T has the highest ceiling and the slowest take-off; E and TC are cheaper but cap lower. Stocks depreciate 3% per period; E decays faster by the <em>E decay</em> setting. The stakeholder's advocacy (E) and cooperation (TC) capabilities use the same curve shapes.</p>
+    <p><strong>Stage 1.</strong> A firm spends up to its per-period budget. Below the <em>triage level</em> it funds only T (the paper's retreat to core survival). Otherwise it first repairs any dimension it believes is below the stakeholder's floor, because a floor breach is a deal-breaker. Then the policy decides the rest. <em>Technical-first</em> puts the rest on T. <em>Balanced</em> splits it three ways. <em>Slope-hunter</em> ranks curves by believed weight × slope, skips any dimension it believes is at the Maximum Demanded level, and invests only when that clears a break-even hurdle of 0.08; otherwise it saves. <em>Orchestrated</em> uses the same rule with full attention, half the signal noise, full attention to the network, and an AI multiplier on its TC curve. Switching the main dimension loses a share of that period's capability gain (<em>pivot friction</em>). When planning, firms see the network's contribution only in proportion to their <em>network attention</em>.</p>
+    <p><strong>Stage 2.</strong> Installed base and complements grow on logistic paths with the same size and speed for every firm, plus a co-evolution increment for every formalized exchange in the market. Complements add to T; the installed base adds to TC and, with the segment's valence, to E (negative for exclusivity segments). Exogenous friction subtracts from TC.</p>
+    <p><strong>Stage 3.</strong> The stakeholder's floors rise each period (capped below the ceilings). Utility above the Maximum Demanded level adds nothing. <em>Human:</em> perceives each dimension with noise, rejects outright if TC is below the friction-abort level, enforces every floor, then requires total value to clear the sum of floors. <em>AI persona:</em> trades off only; no floors, no noise, no abort. <em>Delegated agent:</em> hard floors on T and TC at 110%, emotional weight 0.2, no E floor. <em>Commodity buyer:</em> weights TC heavily and E at zero (the paper's purchasing-algorithm example). Operant resources scale how much T the stakeholder can extract. Value-in-context shocks temporarily move weight from T to TC for every firm.</p>
+    <p><strong>Stage 4.</strong> The stakeholder's dependence is <code>V / (V + alternatives)</code>. It opens by paying its believed version of the firm's payment floor plus a share of its remaining surplus that grows with dependence, never more than 90% of the value it assigned (converted to resources at the <em>value-to-resource rate</em>), and never more than its bank. It also invests in advocacy and cooperation when it believes they are below the firm's floors (both sides repair deal-breakers).</p>
+    <p><strong>Stage 5.</strong> Complements augment the cooperation the firm receives (payment rails). The firm reads a noisy signal of the stakeholder's floors, ceilings and weights on the dimensions it attends to; every firm learns which floor broke after a deal-breaker.</p>
+    <p><strong>Stage 6.</strong> The firm's floors are a payment floor (rising) and a cooperation floor. <em>Great</em> clears the payment floor by 30%; <em>OK</em> clears both floors; <em>not good enough</em> triggers renegotiation: the firm states its shortfall, the stakeholder raises payment or cooperation if its surplus and bank allow, and both update their beliefs. If the rounds run out, or the stakeholder rejected in Stage 3, the period ends with no exchange and the firm reinnovates next period. After more consecutive no-deal periods than its <em>reinnovation tolerance</em>, the firm terminates. A formalized exchange pays the firm the payment plus a conversion share of the advocacy and cooperation it received, and adds to the installed base.</p>
+    <p><strong>Limits.</strong> One stakeholder segment per market, no competition between the focal firms for the same stakeholder, and stylized functional forms. It shows how the model's stated logic behaves under different settings. It does not test the theory.</p>
+  </div>
+</details>
+<p class="note">Built by Vishal Sachdev (University of Illinois) from Mark Meckler's JPIM Research Forum 2026 paper. Code: <a href="https://github.com/vishalsachdev/meckler-exchange-sim">github.com/vishalsachdev/meckler-exchange-sim</a>.</p>
+</div>
+
+<script>
+(function(){
+const DIMS=['T','E','TC'];
+const CURVE={T:{k:.6,m:6,L:1.0},E:{k:.9,m:3,L:.6},TC:{k:1.2,m:2,L:.5}};
+const POL=[{id:'tech',name:'Technical-first'},{id:'bal',name:'Balanced'},{id:'slope',name:'Slope-hunter'},{id:'orch',name:'Orchestrated (AI)'}];
+
+// Every control: [id, group, label, role, min, max, step, default, help, format]
+const CTL=[
+ ['bank0','g1','Starting resource bank','input',2,20,1,8,'Resources the firm starts with.',v=>v],
+ ['spend','g1','Spend per period','input',.5,2,.1,1,'Most the firm can invest in one period.',v=>(+v).toFixed(1)],
+ ['dyncap','g1','Conversion efficiency','moderator',.5,1.5,.05,1,'Dynamic capabilities: capability gained per unit spent.',v=>'×'+(+v).toFixed(2)],
+ ['attn','g1','Attention budget (unaided firms)','moderator',1,3,1,1,'Dimensions an unaided learning firm reads signals on each period. It reads where it already invests most. The orchestrated firm reads all 3.',v=>v+' of 3'],
+ ['triage','g1','Triage level','moderator',0,4,.5,1.5,'Below this bank level a firm funds only T.',v=>(+v).toFixed(1)],
+ ['pivot','g1','Pivot friction','modifier',0,.6,.05,.15,'Share of a period\'s capability gain lost when the main investment dimension changes (path dependence).',v=>(100*v).toFixed(0)+'%'],
+ ['edecay','g1','E decay (volatility)','modifier',0,.1,.01,.02,'Extra per-period decay of emotional capability on both sides.',v=>'+'+(100*v).toFixed(0)+'%'],
+ ['ai','g1','AI steepens TC curve','modifier',1,3,.25,1.5,'Multiplier on TC curve steepness, orchestrated firm only.',v=>'×'+(+v).toFixed(2)],
+ ['ibsize','g2','Installed base: size','moderator',0,1,.05,.6,'Ceiling of the installed-base index. Same for all firms.',v=>(+v).toFixed(2)],
+ ['ibspeed','g2','Installed base: speed','moderator',0,.3,.01,.08,'Logistic growth rate per period. Same for all firms.',v=>(+v).toFixed(2)],
+ ['csize','g2','Complements: size','moderator',0,1,.05,.5,'Ceiling of the complements index. Same for all firms.',v=>(+v).toFixed(2)],
+ ['cspeed','g2','Complements: speed','moderator',0,.3,.01,.06,'Logistic growth rate per period. Same for all firms.',v=>(+v).toFixed(2)],
+ ['coevo','g2','Growth per formalized exchange','modifier',0,.02,.0025,.005,'Co-evolution: each formalized exchange adds this to the installed base.',v=>'+'+(+v).toFixed(4)],
+ ['netattn','g2','Network attention (unaided firms)','moderator',0,1,.1,.3,'How much of the network\'s contribution unaided firms see when planning. The orchestrated firm sees all of it.',v=>(100*v).toFixed(0)+'%'],
+ ['valence','g2','Installed base valence on E','modifier',-1,1,.1,0,'Positive: popularity adds emotional utility. Negative: it erodes exclusivity.',v=>(v>0?'+':'')+(+v).toFixed(1)],
+ ['exofric','g2','Exogenous friction','modifier',0,.2,.01,0,'Regulatory or infrastructure friction subtracted from TC.',v=>(+v).toFixed(2)],
+ ['operant','g3','Operant resources','moderator',.4,1,.05,1,'How much of the technical utility the stakeholder can actually use.',v=>(100*v).toFixed(0)+'%'],
+ ['abort','g3','Friction abort level','moderator',0,.15,.01,.03,'A human evaluator rejects outright when TC is below this (System 1 aborts before System 2 starts).',v=>(+v).toFixed(2)],
+ ['floorrise','g3','Floors rise per period','modifier',0,.006,.0005,.002,'How fast every Minimum Necessary floor rises, on both sides.',v=>'+'+(+v).toFixed(4)],
+ ['drift','g3','Max-demanded T drift','modifier',0,.02,.0025,.005,'How fast the ceiling on technical utility rises (overshoot dynamics).',v=>'+'+(+v).toFixed(4)],
+ ['ctx','g3','Context shock chance','moderator',0,.1,.01,.02,'Per-period chance the stakeholder\'s context shifts weight from T to TC for 6 periods.',v=>(100*v).toFixed(0)+'%'],
+ ['alt','g4','Stakeholder\'s market alternatives','moderator',0,2,.1,.5,'Outside options. More alternatives mean lower dependence and leaner offers.',v=>(+v).toFixed(1)],
+ ['income','g4','Stakeholder income per period','input',.5,3,.1,1.5,'Resources added to the stakeholder\'s bank each period.',v=>(+v).toFixed(1)],
+ ['rate','g4','Value-to-resource rate','input',.8,3,.1,1.6,'Resources a stakeholder can pay per unit of value it assigns (market size and price level).',v=>'×'+(+v).toFixed(1)],
+ ['share','g4','Opening surplus share','moderator',0,1,.05,.3,'Share of its surplus the stakeholder offers up front at full dependence.',v=>(100*v).toFixed(0)+'%'],
+ ['noise','g5','Signal noise','moderator',0,.5,.05,.2,'How unclear the revealed-preference signal is.',v=>(+v).toFixed(2)],
+ ['lr','g5','Learning rate','moderator',.05,.8,.05,.3,'Absorptive capacity: how far each signal moves beliefs, on both sides.',v=>(+v).toFixed(2)],
+ ['payfloor','g6','Firm payment floor','moderator',.2,2,.05,.8,'Minimum payment the firm accepts (rises with the floors).',v=>(+v).toFixed(2)],
+ ['coopfloor','g6','Firm cooperation floor','moderator',0,.2,.01,.04,'Minimum transaction-cost utility the firm needs from the stakeholder.',v=>(+v).toFixed(2)],
+ ['rounds','g6','Renegotiation rounds','moderator',0,6,1,3,'Stage 4–5 loops allowed inside one period.',v=>v],
+ ['tol','g6','Reinnovation tolerance','moderator',1,12,1,5,'Consecutive no-deal periods before the firm terminates.',v=>v],
+ ['conv','g6','Non-cash conversion','modifier',0,1,.05,.5,'Share of received advocacy and cooperation that replenishes the bank.',v=>(100*v).toFixed(0)+'%'],
+ ['periods','g6','Periods','input',20,120,10,60,'Length of the run.',v=>v],
+];
+const DEF={rule:'human',seed:7,firm:'slope'};CTL.forEach(c=>DEF[c[0]]=c[7]);
+const S={...DEF};
+
+function rng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){let u=0,v=0;while(!u)u=r();v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+const sig=z=>1/(1+Math.exp(-z));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function util(d,x,kmul){const c=CURVE[d],k=c.k*kmul,b=sig(-k*c.m);return c.L*(sig(k*(Math.max(0,x)-c.m))-b)/(1-b)}
+function slope(d,x,kmul){return (util(d,x+.05,kmul)-util(d,x,kmul))/.05}
+function logistic(t,size,speed,mid){return size*sig(speed*(t-mid))}
+
+function simulate(seed,P,wantTrace){
+  const er=rng(seed);
+  const mk={min:{T:.25+.15*er(),E:.05+.1*er(),TC:.05+.1*er()},max:{T:.5+.2*er(),E:.35+.2*er(),TC:.3+.15*er()}};
+  // Shared environment path: context shocks drawn once for the market.
+  const shock=[];let left=0;for(let t=0;t<P.periods;t++){if(left>0)left--;else if(er()<P.ctx)left=6;shock.push(left>0)}
+  const F=POL.map(p=>{
+    const orch=p.id==='orch';
+    return{p,orch,kmul:{T:1,E:1,TC:orch?P.ai:1},x:{T:4,E:1.5,TC:1},
+      bel:{min:{T:.2,E:.05,TC:.05},max:{T:1,E:.3,TC:.3},w:{T:1,E:1,TC:1}},
+      sigma:orch?P.noise/2:P.noise,attn:orch?3:P.attn,netattn:orch?1:P.netattn,
+      r:rng(seed*31+p.id.length*7+(orch?3:0)),hr:rng(seed*17+1),
+      bank:P.bank0,alive:true,why:'',fails:0,lastMain:null,
+      // Stakeholder facing this firm (identical start for every firm).
+      sh:{bank:3,x:{E:1,TC:1},belPay:.4,belCoop:.03},
+      ok:0,reneg:0,reinno:0,waste:0,spendAll:0,surplus:0,bankS:[],allocS:[],statS:[],log:[]};
+  });
+  let ibExtra=0;const envS=[];
+  for(let t=0;t<P.periods;t++){
+    const IB=clamp(logistic(t,P.ibsize,P.ibspeed,30)+ibExtra,0,1.5);
+    const C=logistic(t,P.csize,P.cspeed,30);
+    const rise=P.floorrise*t;
+    const fmin={};DIMS.forEach(d=>fmin[d]=Math.min(mk.min[d]+rise,.9*mk.max[d]+(d==='T'?P.drift*t*.9:0)));
+    const fmax={...mk.max,T:mk.max.T+P.drift*t};
+    const R=P.rule==='shift'?(t<P.periods/2?'human':'agent'):P.rule;
+    const ctx=shock[t];
+    let w=R==='agent'?{T:1,E:.2,TC:1}:R==='tcbuyer'?{T:.8,E:0,TC:1.6}:{T:1,E:1,TC:1};
+    if(ctx)w={T:w.T*.4,E:w.E,TC:w.TC*1.8};
+    // Floors this evaluator actually enforces (what a learning firm can discover).
+    const enf=d=>R==='persona'?0:R==='agent'?(d==='E'?0:1.1*fmin[d]):R==='tcbuyer'?(d==='E'?0:fmin[d]):fmin[d];
+    const aug={T:C*.15*P.operant,E:P.valence*IB*.15,TC:IB*.15-P.exofric};
+    const payFloor=P.payfloor+rise*4;
+    envS.push({IB,C,fT:fmin.T,fE:fmin.E,ctx});
+    let formalizedThisPeriod=0;
+    for(const f of F){
+      if(!f.alive){f.bankS.push(null);f.allocS.push({T:0,E:0,TC:0});f.statS.push('dead');continue}
+      const L=wantTrace?f.log:null;
+      const u={};DIMS.forEach(d=>u[d]=util(d,f.x[d],f.kmul[d]));
+      const seen=d=>u[d]+f.netattn*aug[d];
+      // ---- Stage 1: allocate
+      const spend=Math.min(f.bank,P.spend),a={T:0,E:0,TC:0};let mode='';
+      if(f.bank<P.triage){a.T=spend;mode='triage'}
+      else{
+        const below=DIMS.filter(d=>seen(d)<f.bel.min[d]*1.05);
+        if(below.length){below.forEach(d=>a[d]=spend/below.length);mode='repair '+below.join('+')}
+        else if(f.p.id==='tech'){a.T=spend;mode='T'}
+        else if(f.p.id==='bal'){DIMS.forEach(d=>a[d]=spend/3);mode='split'}
+        else{
+          let best=null,bs=0;
+          DIMS.forEach(d=>{const s=seen(d)<f.bel.max[d]?Math.max(0,f.bel.w[d])*slope(d,f.x[d],f.kmul[d]):0;if(s>bs){bs=s;best=d}});
+          if(best&&bs>.08){a[best]=spend;mode='hunt '+best}else mode='save';
+        }
+      }
+      const used=a.T+a.E+a.TC;
+      DIMS.forEach(d=>{if(a[d]>0&&u[d]+aug[d]>=fmax[d])f.waste+=a[d]});
+      f.spendAll+=used;
+      const main=used>0?DIMS.reduce((m,d)=>a[d]>a[m]?d:m,'T'):f.lastMain;
+      const pivoted=f.lastMain&&main&&main!==f.lastMain;
+      f.lastMain=main;
+      DIMS.forEach(d=>{const dep=.03+(d==='E'?P.edecay:0);f.x[d]=f.x[d]*(1-dep)+a[d]*P.dyncap*(pivoted?1-P.pivot:1)});
+      f.bank-=used;
+      // ---- Stage 2: augmentation
+      const v={};DIMS.forEach(d=>v[d]=util(d,f.x[d],f.kmul[d])+aug[d]);
+      v.T=util('T',f.x.T,1)*P.operant+aug.T;
+      // ---- Stage 3: valuation
+      const human=R==='human';
+      const per={};DIMS.forEach(d=>per[d]=human?v[d]*(1+.1*gauss(f.hr)):v[d]);
+      const V=DIMS.reduce((s,d)=>s+w[d]*clamp(per[d],0,fmax[d]),0);
+      const floorSum=DIMS.reduce((s,d)=>s+fmin[d]*(R==='agent'&&d==='E'?0:1),0);
+      let broke=[];let status='',rounds=0;
+      if(human&&per.TC<P.abort)broke=['TC'];
+      else{broke=DIMS.filter(d=>enf(d)>0&&per[d]<enf(d));
+        if(!broke.length&&(R==='human'||R==='persona')&&V<floorSum)broke=['total']}
+      // Stakeholder upkeep: income, capability decay, and deal-breaker repair on its own side.
+      const sh=f.sh;sh.bank+=P.income;sh.x.E*=1-(.03+P.edecay);sh.x.TC*=.97;
+      if(broke.length){
+        status='reinnovate';
+        // Deal-breaker signal: every firm learns which floor broke.
+        broke.forEach(d=>{if(d!=='total')f.bel.min[d]+=P.lr*(enf(d)*1.05+f.sigma*.5*gauss(f.r)-f.bel.min[d])});
+        if(broke[0]==='total')DIMS.forEach(d=>f.bel.min[d]*=1.04);
+        if(L)L.push(`t${t}: ${mode}; stakeholder rejects (${broke[0]==='total'?'total value below floors':'deal-breaker: '+broke.join(', ')+(human&&broke[0]==='TC'&&per.TC<P.abort?' (friction abort)':'')})`);
+      }else{
+        // ---- Stage 4: reciprocal package
+        const dep=V/(V+P.alt+1e-9);
+        // Stakeholder repairs advocacy and cooperation it believes are below the firm's floors.
+        const uE=()=>util('E',sh.x.E,1)*.5,uTC=()=>util('TC',sh.x.TC,1)*.5+C*.1;
+        if(uTC()<sh.belCoop*1.05&&sh.bank>.3){sh.x.TC+=.5;sh.bank-=.3}
+        if(dep>.5&&sh.bank>1)sh.x.E+=.2*dep,sh.bank-=.1;
+        const V$=V*P.rate,cap=Math.min(.9*V$,sh.bank);
+        let pay=Math.min(cap,sh.belPay+P.share*dep*Math.max(0,.9*V$-sh.belPay));
+        // ---- Stages 5-6: return trip, valuation, negotiation loop
+        const judge=()=>{const coop=uTC();return{coop,pass:pay>=payFloor&&coop>=P.coopfloor}};
+        let j=judge();
+        while(!j.pass&&rounds<P.rounds){
+          rounds++;
+          if(pay<payFloor){const np=Math.min(cap,pay+.15*V$);sh.belPay+=P.lr*(Math.max(pay,np)-sh.belPay);pay=np}
+          if(j.coop<P.coopfloor&&sh.bank>.3){sh.x.TC+=.5;sh.bank-=.3;sh.belCoop+=P.lr*(P.coopfloor-sh.belCoop)}
+          j=judge();
+        }
+        if(j.pass){
+          status=rounds?'reneg':'ok';
+          const nonCash=uE()+j.coop;
+          f.bank+=pay+P.conv*nonCash;sh.bank-=pay;f.surplus+=V$-pay;
+          f.ok++;if(rounds)f.reneg++;formalizedThisPeriod++;
+          // An economizing stakeholder probes a little lower next time when it has options.
+          sh.belPay+=P.lr*(pay-sh.belPay);if(dep<.6)sh.belPay*=.97;
+          const great=pay>=1.3*payFloor;
+          if(L)L.push(`t${t}: ${mode}; value ${V.toFixed(2)}, pay ${pay.toFixed(2)} vs floor ${payFloor.toFixed(2)} → ${rounds?'formalized after '+rounds+' round'+(rounds>1?'s':''):(great?'great':'OK')+', formalized'}`);
+        }else{
+          status='reinnovate';
+          // The firm learns its package is not valued enough to fund its floor: raise believed weights' bar.
+          DIMS.forEach(d=>f.bel.min[d]*=1.02);
+          if(L)L.push(`t${t}: ${mode}; value ${V.toFixed(2)}; best pay ${pay.toFixed(2)} < floor ${payFloor.toFixed(2)} after ${rounds} round${rounds===1?'':'s'} → reinnovate`);
+        }
+      }
+      // Firm learning from the signal on attended dimensions (absorptive capacity).
+      const order=[...DIMS].sort((m,n)=>(a[n]+f.x[n]*.01)-(a[m]+f.x[m]*.01));
+      order.slice(0,f.attn).forEach(d=>{
+        f.bel.max[d]+=P.lr*(fmax[d]+f.sigma*gauss(f.r)-f.bel.max[d]);
+        f.bel.min[d]+=P.lr*(enf(d)+f.sigma*gauss(f.r)-f.bel.min[d]);
+        f.bel.w[d]+=P.lr*(w[d]+f.sigma*gauss(f.r)-f.bel.w[d]);
+      });
+      if(status==='reinnovate'){f.reinno++;f.fails++}else f.fails=0;
+      if(f.fails>P.tol){f.alive=false;f.why='terminated';status='term';if(L)L.push(`t${t}: firm terminates the relationship after ${f.fails} straight no-deal periods`)}
+      if(f.bank<=1e-9){f.alive=false;f.bank=0;f.why='bankrupt';status='term';if(L)L.push(`t${t}: resource bank exhausted, firm exits`)}
+      f.bankS.push(f.bank);f.allocS.push(a);f.statS.push(status);
+    }
+    ibExtra+=P.coevo*formalizedThisPeriod;
+  }
+  const out={env:envS};
+  F.forEach(f=>out[f.p.id]={bank:f.bankS,alloc:f.allocS,stat:f.statS,alive:f.alive,why:f.why,ok:f.ok,reneg:f.reneg,reinno:f.reinno,waste:f.waste,spendAll:f.spendAll,surplus:f.surplus,log:f.log,
+    final:f.bankS.filter(v=>v!==null).slice(-1)[0]??0,periods:f.statS.filter(s=>s!=='dead').length});
+  return out;
+}
+window.__sim={simulate,DEF,POL};
+
+// ---------- drawing
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COL={tech:'--t',bal:'--muted',slope:'--e',orch:'--tc'};
+const DASH={tech:[],bal:[4,4],slope:[],orch:[]};
+function prep(cv){const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;cv.width=w*dpr;cv.height=h*dpr;const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);return{c,w,h}}
+function axes(c,w,h,pad,ymax,ylab){
+  c.strokeStyle=css('--rule');c.fillStyle=css('--muted');c.font='11px '+css('--mono');c.lineWidth=1;
+  const ticks=4;for(let i=0;i<=ticks;i++){const v=ymax*i/ticks,y=h-pad.b-(h-pad.t-pad.b)*i/ticks;c.beginPath();c.moveTo(pad.l,y);c.lineTo(w-pad.r,y);c.stroke();c.textAlign='right';c.fillText(v.toFixed(ymax<5?1:0),pad.l-6,y+4)}
+  c.textAlign='left';c.fillText(ylab,pad.l,pad.t-6);
+  c.textAlign='center';const P=S.periods;for(let i=0;i<=P;i+=P>60?20:10){const xx=pad.l+(w-pad.l-pad.r)*i/P;c.fillText(String(i),xx,h-pad.b+16)}
+}
+function drawBank(res){
+  const cv=document.getElementById('bank'),{c,w,h}=prep(cv),pad={l:40,r:12,t:18,b:24};
+  let ymax=0;POL.forEach(p=>res[p.id].bank.forEach(v=>{if(v!==null&&v>ymax)ymax=v}));ymax=Math.max(5,Math.ceil(ymax/5)*5);
+  axes(c,w,h,pad,ymax,'resource bank');
+  const X=i=>pad.l+(w-pad.l-pad.r)*(i+1)/S.periods,Y=v=>h-pad.b-(h-pad.t-pad.b)*v/ymax;
+  POL.forEach(p=>{const s=res[p.id].bank;c.strokeStyle=css(COL[p.id]);c.lineWidth=2.25;c.setLineDash(DASH[p.id]);c.beginPath();let on=false;
+    s.forEach((v,i)=>{if(v===null)return;on?c.lineTo(X(i),Y(v)):c.moveTo(X(i),Y(v));on=true});c.stroke();c.setLineDash([]);
+    const li=s.map((v,i)=>v===null?-1:i).filter(i=>i>=0).pop();
+    if(li!==undefined){c.fillStyle=css(COL[p.id]);c.beginPath();c.arc(X(li),Y(s[li]),3.5,0,7);c.fill();
+      if(!res[p.id].alive){c.font='11px '+css('--mono');c.textAlign='center';c.fillText(res[p.id].why==='terminated'?'quit':'exit',X(li),Y(s[li])-8)}}
+  });
+}
+const SCOL={ok:'--ok',reneg:'--neg',reinnovate:'--muted',term:'--bad'};
+function drawAlloc(res){
+  const cv=document.getElementById('alloc'),{c,w,h}=prep(cv),pad={l:40,r:12,t:28,b:24},f=res[S.firm];
+  const ymax=Math.max(1,S.spend);axes(c,w,h,pad,ymax,'spend per period');
+  const bw=(w-pad.l-pad.r)/S.periods;
+  f.alloc.forEach((a,i)=>{let y=h-pad.b;const x0=pad.l+bw*i+bw*.12,bwi=bw*.76;
+    [['T','--t'],['E','--e'],['TC','--tc']].forEach(([d,col])=>{const hh=(h-pad.t-pad.b)*a[d]/ymax;if(hh>0){c.fillStyle=css(col);c.fillRect(x0,y-hh,bwi,hh);y-=hh}});
+    const st=f.stat[i];if(SCOL[st]){c.fillStyle=css(SCOL[st]);c.fillRect(pad.l+bw*i+.5,pad.t-8,Math.max(1,bw-1),6)}
+  });
+  const tr=document.getElementById('trace');tr.textContent=f.log.length?f.log.join('\n'):'No exchanges logged.';
+}
+function drawEnv(res){
+  const cv=document.getElementById('env'),{c,w,h}=prep(cv),pad={l:40,r:12,t:18,b:24},e=res.env;
+  let ymax=0;e.forEach(o=>ymax=Math.max(ymax,o.IB,o.C,o.fT,o.fE));ymax=Math.max(.5,Math.ceil(ymax*4)/4);
+  const X=i=>pad.l+(w-pad.l-pad.r)*(i+1)/S.periods,Y=v=>h-pad.b-(h-pad.t-pad.b)*v/ymax;
+  c.fillStyle=css('--rule');e.forEach((o,i)=>{if(o.ctx)c.fillRect(X(i-1),pad.t,X(i)-X(i-1),h-pad.t-pad.b)});
+  axes(c,w,h,pad,ymax,'index');
+  [['IB','--accent',1,[]],['C','--tc',1,[]],['fT','--t',.55,[5,4]],['fE','--e',.55,[5,4]]].forEach(([k,col,al,da])=>{
+    c.globalAlpha=al;c.strokeStyle=css(col);c.lineWidth=2;c.setLineDash(da);c.beginPath();e.forEach((o,i)=>i?c.lineTo(X(i),Y(o[k])):c.moveTo(X(i),Y(o[k])));c.stroke();c.setLineDash([]);c.globalAlpha=1});
+}
+const N=200;
+function summary(){
+  const agg={};POL.forEach(p=>agg[p.id]={surv:0,ok:0,per:0,reneg:0,reinno:0,term:0,waste:0,spend:0,fin:0,sur:0});
+  for(let s=1;s<=N;s++){const r=simulate(s*9973,S,false);POL.forEach(p=>{const a=agg[p.id],q=r[p.id];a.surv+=q.alive?1:0;a.ok+=q.ok;a.per+=q.periods;a.reneg+=q.reneg;a.reinno+=q.reinno;a.term+=q.why==='terminated'?1:0;a.waste+=q.waste;a.spend+=q.spendAll;a.fin+=q.final;a.sur+=q.surplus})}
+  const rows=POL.map(p=>{const a=agg[p.id];return{p,surv:a.surv/N,ok:a.per?a.ok/a.per:0,reneg:a.ok?a.reneg/a.ok:0,reinno:a.reinno/N,term:a.term/N,waste:a.spend?a.waste/a.spend:0,fin:a.fin/N,sur:a.sur/N}});
+  const bestFin=Math.max(...rows.map(r=>r.fin)),bestSurv=Math.max(...rows.map(r=>r.surv));
+  const pct=v=>(100*v).toFixed(0)+'%';
+  document.getElementById('summary').innerHTML=rows.map(r=>`<tr><td><i class="sw" style="background:var(${COL[r.p.id]})"></i> ${r.p.name}</td><td class="${r.surv===bestSurv?'best':''}">${pct(r.surv)}</td><td>${pct(r.ok)}</td><td>${pct(r.reneg)}</td><td>${r.reinno.toFixed(1)}</td><td>${pct(r.term)}</td><td>${pct(r.waste)}</td><td class="${r.fin===bestFin?'best':''}">${r.fin.toFixed(1)}</td><td>${r.sur.toFixed(1)}</td></tr>`).join('');
+}
+let res;
+function run(){res=simulate(S.seed,S,true);document.getElementById('seed').textContent=S.seed;drawBank(res);drawAlloc(res);drawEnv(res)}
+let tid=null;
+function all(){run();clearTimeout(tid);tid=setTimeout(summary,60)}
+
+// ---------- controls
+CTL.forEach(([id,g,label,role,min,max,step,def,help,fmt])=>{
+  const box=document.createElement('div');box.className='ctl';
+  box.innerHTML=`<label for="${id}"><span>${label}<span class="role">${role}</span></span><output id="${id}-o"></output></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${def}"><small>${help}</small>`;
+  document.getElementById(g).appendChild(box);
+  const el=box.querySelector('input'),o=box.querySelector('output');
+  const set=()=>{S[id]=+el.value;o.textContent=fmt(el.value)};set();
+  el.addEventListener('input',()=>{set();all()});
+});
+const help={
+  human:'Perceives each dimension with some noise, rejects outright when friction is too high, enforces every floor, then needs total value to clear the sum of the floors.',
+  persona:'An AI simulating a human: trades everything off, with no floors, no noise and no friction abort.',
+  agent:'An AI agent buying for a principal: hard floors on T and TC at 110%, little weight on emotional utility, no E floor.',
+  tcbuyer:'A purchasing algorithm: weights TC heavily, registers zero value for emotional utility (the paper\'s commodity example).',
+  shift:'Human evaluators for the first half of the run, then delegated agents. Learning firms have to notice the change.'};
+const RULES=['human','persona','agent','tcbuyer','shift'];
+const setRule=k=>{S.rule=k;RULES.forEach(r=>document.getElementById('rule-'+r).setAttribute('aria-pressed',r===k));document.getElementById('rule-help').textContent=help[k]};
+RULES.forEach(k=>document.getElementById('rule-'+k).addEventListener('click',()=>{setRule(k);all()}));
+setRule(S.rule);
+document.getElementById('reseed').addEventListener('click',()=>{S.seed=Math.floor(Math.random()*1e6);run()});
+document.getElementById('reset').addEventListener('click',()=>{CTL.forEach(c=>{const el=document.getElementById(c[0]);el.value=c[7];el.dispatchEvent(new Event('input'))});setRule('human');S.seed=7;all()});
+const fp=document.getElementById('firmpick');
+POL.forEach(p=>{const b=document.createElement('button');b.textContent=p.name;b.setAttribute('aria-pressed',p.id===S.firm);b.addEventListener('click',()=>{S.firm=p.id;[...fp.children].forEach(x=>x.setAttribute('aria-pressed',x===b));drawAlloc(res)});fp.appendChild(b)});
+document.getElementById('bank-legend').innerHTML=POL.map(p=>`<span><i class="sw" style="background:var(${COL[p.id]})"></i>${p.name}</span>`).join('');
+const redraw=()=>{if(res){drawBank(res);drawAlloc(res);drawEnv(res)}};
+window.addEventListener('resize',redraw);
+if(window.matchMedia)matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',redraw);
+all();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<title>Economizing Pivot Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab-notebook instrument. Controls on the left, readouts on the right, stacking on phones. */
+:root{
+  --bg:#F3F5F7; --panel:#FFFFFF; --ink:#18212B; --muted:#5A6672; --rule:#D5DBE1;
+  --t:#2F5D8A; --e:#B4466A; --tc:#B07A12; --ok:#2E7D4F; --bad:#B33A2B; --accent:#2F5D8A;
+  --display:'Archivo',system-ui,sans-serif; --body:'Source Serif 4',Georgia,serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11161C; --panel:#18202A; --ink:#E6EBF0; --muted:#9AA6B2; --rule:#2C3743;
+  --t:#7FB0E0; --e:#E58AA8; --tc:#E0B24F; --ok:#6CC28F; --bad:#EE7B6B; --accent:#7FB0E0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161C; --panel:#18202A; --ink:#E6EBF0; --muted:#9AA6B2; --rule:#2C3743;
+  --t:#7FB0E0; --e:#E58AA8; --tc:#E0B24F; --ok:#6CC28F; --bad:#EE7B6B; --accent:#7FB0E0; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;padding-inline:16px;padding-block:24px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+header{display:flex;flex-direction:column;gap:8px;max-width:70ch}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,4.5vw,42px);line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-weight:700;font-size:18px;margin:0}
+p{margin:0}
+.lede{color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl label{font-family:var(--display);font-weight:500;font-size:14px;display:flex;justify-content:space-between;gap:8px}
+.ctl output{font-family:var(--mono);font-size:13px;color:var(--accent)}
+.ctl small{color:var(--muted);font-size:13px;line-height:1.4}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.seg{display:flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.seg button{flex:1;font-family:var(--display);font-size:14px;padding:8px 6px;border:0;background:transparent;color:var(--ink);cursor:pointer}
+.seg2{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule)}
+.seg2 button{background:var(--panel)}
+.seg2 button:last-child{grid-column:span 2}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--panel)}
+.seg button:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{font-family:var(--display);font-weight:700;font-size:14px;padding:10px 14px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer}
+.readouts{display:flex;flex-direction:column;gap:24px;min-width:0}
+.chart{width:100%;height:240px;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:12px 18px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:2px;display:inline-block}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--rule);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+th{font-family:var(--display);font-weight:500;color:var(--muted);font-size:13px}
+th:first-child,td:first-child{text-align:left;font-family:var(--display)}
+.best{color:var(--ok);font-weight:500}
+.note{font-size:14px;color:var(--muted);max-width:75ch}
+.pill{font-family:var(--mono);font-size:11px;padding:2px 6px;border-radius:999px;border:1px solid var(--rule);color:var(--muted)}
+.firmpick{display:flex;flex-wrap:wrap;gap:6px}
+.firmpick button{font-family:var(--display);font-size:13px;padding:6px 10px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--ink);cursor:pointer}
+.firmpick button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:700}
+details{border-top:1px solid var(--rule);padding-top:12px}
+summary{font-family:var(--display);font-weight:700;cursor:pointer}
+.spec{display:flex;flex-direction:column;gap:10px;margin-top:10px;font-size:15px;max-width:75ch}
+code{font-family:var(--mono);font-size:13px}
+</style>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">A thinking tool for Meckler's six-stage exchange model · JPIM RF 2026</span>
+  <h1>Does the economizing pivot pay?</h1>
+  <p class="lede">Four firms build technical (T), emotional (E) and transaction-cost (TC) utility on S-curves and sell to the same stakeholder segment. That segment has a Minimum Necessary and a Maximum Demanded threshold on each dimension. The firms differ only in how they allocate resources and how much of the market signal they attend to. Switch who evaluates the offer (a human, an AI persona simulating a human, or an AI agent buying for someone) and watch which firm survives.</p>
+  <noscript><p><strong>This page needs JavaScript to run the simulation.</strong> The model specification is in the "How the model works" section below.</p></noscript>
+</header>
+
+<div class="grid">
+  <aside class="panel" aria-label="Model settings">
+    <div class="ctl">
+      <span class="eyebrow">Stage 3: who evaluates the offer</span>
+      <div class="seg seg2" role="group" aria-label="Buyer type">
+        <button id="rule-human" aria-pressed="true">Human</button>
+        <button id="rule-persona" aria-pressed="false">AI persona</button>
+        <button id="rule-agent" aria-pressed="false">Delegated agent</button>
+        <button id="rule-conj" aria-pressed="false">Pure floors</button>
+        <button id="rule-shift" aria-pressed="false">Human, then agents from midpoint</button>
+      </div>
+      <small id="rule-help"></small>
+    </div>
+    <div class="ctl">
+      <label for="noise">Signal noise <output id="noise-o"></output></label>
+      <input type="range" id="noise" min="0" max="0.5" step="0.05" value="0.2">
+      <small>How noisy the Stage 5 information signal about thresholds is.</small>
+    </div>
+    <div class="ctl">
+      <label for="attn">Attention budget <output id="attn-o"></output></label>
+      <input type="range" id="attn" min="1" max="3" step="1" value="1">
+      <small>How many dimensions an unaided firm can read signals on each period. It reads where it already invests most.</small>
+    </div>
+    <div class="ctl">
+      <label for="drift">Max-demanded T drift <output id="drift-o"></output></label>
+      <input type="range" id="drift" min="0" max="0.02" step="0.0025" value="0.005">
+      <small>How fast the ceiling on technical utility rises per period (overshoot dynamics).</small>
+    </div>
+    <div class="ctl">
+      <label for="ai">AI steepens TC curve <output id="ai-o"></output></label>
+      <input type="range" id="ai" min="1" max="3" step="0.25" value="1.5">
+      <small>Multiplier on TC curve steepness for the orchestrated firm only.</small>
+    </div>
+    <div class="ctl">
+      <label for="periods">Periods <output id="periods-o"></output></label>
+      <input type="range" id="periods" min="20" max="120" step="10" value="60">
+    </div>
+    <button class="btn" id="reseed">Run a new random market</button>
+    <small class="note">Seed <span id="seed" class="pill"></span>. The table averages 200 seeds.</small>
+  </aside>
+
+  <section class="readouts">
+    <div class="panel">
+      <h2>Resource bank over time</h2>
+      <canvas class="chart" id="bank" role="img" aria-label="Line chart of each firm's resource bank by period"></canvas>
+      <div class="legend" id="bank-legend"></div>
+    </div>
+    <div class="panel">
+      <h2>Where one firm puts its money</h2>
+      <div class="firmpick" id="firmpick" role="group" aria-label="Choose firm"></div>
+      <canvas class="chart" id="alloc" role="img" aria-label="Stacked bars of the chosen firm's spend on T, E and TC per period; dots mark failed exchanges"></canvas>
+      <div class="legend"><span><i class="sw" style="background:var(--t)"></i>T</span><span><i class="sw" style="background:var(--e)"></i>E</span><span><i class="sw" style="background:var(--tc)"></i>TC</span><span><i class="sw" style="background:var(--bad);border-radius:50%"></i>exchange failed</span></div>
+    </div>
+    <div class="panel">
+      <h2>Across 200 random markets</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Firm policy</th><th>Survived</th><th>Exchanges formalized</th><th>Wasted spend</th><th>Pivots</th><th>Final bank</th></tr></thead>
+        <tbody id="summary"></tbody>
+      </table></div>
+      <p class="note"><strong>Wasted spend</strong> is money put into a dimension already at or above the segment's Maximum Demanded threshold. <strong>Pivots</strong> count switches in a firm's main investment dimension; many pivots mean thrashing.</p>
+    </div>
+  </section>
+</div>
+
+<details class="panel">
+  <summary>How the model works</summary>
+  <div class="spec">
+    <p><strong>S-curves (Stage 1).</strong> Each dimension's utility is a logistic function of the capability stock: <code>u(x) = L·(σ(k(x−m)) − σ(−km)) / (1 − σ(−km))</code>. T has the highest ceiling and the slowest take-off; E and TC are cheaper but cap lower. Stocks depreciate 3% per period.</p>
+    <p><strong>Thresholds (Stage 3).</strong> Each random market draws a Minimum Necessary and a Maximum Demanded level per dimension. Utility above the maximum adds no value. Four buyer types evaluate the offer. <em>Human:</em> screens on soft, noisy floors (each about 70% of the minimum), then requires the total to clear the sum of the minimums. <em>AI persona:</em> fully compensatory and noise-free; only the total counts. <em>Delegated agent:</em> buys for a principal against hard floors on T and TC at 110% of the minimum, and weights emotional utility at 0.2 in both value and price. <em>Pure floors:</em> the reference conjunctive rule, every dimension at its exact minimum.</p>
+    <p><strong>Exchange and replenishment (Stages 4–6).</strong> A formalized exchange returns 1.6 × assigned value to the resource bank. A failed one returns nothing. A firm whose bank reaches zero exits.</p>
+    <p><strong>Learning (Stages 5–6).</strong> Firms start out believing the market wants maximum technical utility. Each period they update three beliefs from a noisy signal, but only on the dimensions they attend to: the floor the buyer actually enforces, the buyer's Maximum Demanded level, and how much the buyer weights that dimension. The slope-hunter and the orchestrated firm rank curves by believed weight × slope, and invest only when that clears a break-even hurdle (about 0.08, from the sale price, 3% depreciation and a 10% discount rate). Otherwise they save. Technical-only and balanced firms do not learn. The last buyer option switches from humans to delegated agents halfway through the run.</p>
+    <p><strong>Policies.</strong> <em>Technical-only</em> spends one unit per period on T. <em>Balanced</em> splits one unit three ways. <em>Slope-hunter</em> follows the paper: it fixes any dimension it believes is below minimum, then puts everything on the steepest curve still below its believed maximum, and saves when none is. <em>Orchestrated</em> uses the same rule but reads signals on all three dimensions with half the noise, and AI steepens its TC curve.</p>
+    <p><strong>Limits.</strong> One segment, no competition between firms, no negotiation loop, no network effects. It shows how the model's logic behaves. It does not test the theory.</p>
+  </div>
+</details>
+</div>
+
+<script>
+(function(){
+const DIMS=['T','E','TC'];
+const CURVE={T:{k:.6,m:6,L:1.0},E:{k:.9,m:3,L:.6},TC:{k:1.2,m:2,L:.5}};
+const POL=[{id:'tech',name:'Technical-only'},{id:'bal',name:'Balanced'},{id:'slope',name:'Slope-hunter'},{id:'orch',name:'Orchestrated (AI)'}];
+const S={rule:'human',noise:.2,attn:1,drift:.005,ai:1.5,periods:60,seed:7,firm:'slope'};
+
+function rng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){let u=0,v=0;while(!u)u=r();v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+const sig=z=>1/(1+Math.exp(-z));
+function util(d,x,kmul){const c=CURVE[d],k=c.k*kmul,b=sig(-k*c.m);return c.L*(sig(k*(x-c.m))-b)/(1-b)}
+function slope(d,x,kmul){return (util(d,x+.05,kmul)-util(d,x,kmul))/.05}
+
+function market(r){return{
+  min:{T:.25+.15*r(),E:.05+.1*r(),TC:.05+.1*r()},
+  max:{T:.5+.2*r(),E:.35+.2*r(),TC:.3+.15*r()}}}
+
+function simulate(seed,P){
+  const r=rng(seed),mk=market(r),out={};
+  for(const p of POL){
+    const orch=p.id==='orch';
+    const kmul={T:1,E:1,TC:orch?P.ai:1};
+    const x={T:4,E:1.5,TC:1};
+    const bel={min:{T:.2,E:.2,TC:.2},max:{T:1,E:.2,TC:.2},w:{T:1,E:1,TC:1}};
+    const sigma=orch?P.noise/2:P.noise, budgetAttn=orch?3:P.attn;
+    const pr=rng(seed*31+p.id.length*7+(orch?3:0)),hr=rng(seed*17+1);
+    let bank=8,alive=true,ok=0,trades=0,waste=0,spendAll=0,pivots=0,lastMain=null;
+    const maxT0=mk.max.T, bankS=[],allocS=[],failS=[];
+    for(let t=0;t<P.periods;t++){
+      const max={...mk.max,T:maxT0+P.drift*t};
+      if(!alive){bankS.push(null);allocS.push({T:0,E:0,TC:0});failS.push(false);continue}
+      const u={};DIMS.forEach(d=>u[d]=util(d,x[d],kmul[d]));
+      // Stage 1: allocate
+      const spend=Math.min(bank,1),a={T:0,E:0,TC:0};
+      if(p.id==='tech')a.T=spend;
+      else if(p.id==='bal')DIMS.forEach(d=>a[d]=spend/3);
+      else{
+        const below=DIMS.filter(d=>u[d]<bel.min[d]);
+        if(below.length)below.forEach(d=>a[d]=spend/below.length);
+        else{
+          let best=null,bs=0;
+          DIMS.forEach(d=>{const s=u[d]<bel.max[d]?Math.max(0,bel.w[d])*slope(d,x[d],kmul[d]):0;if(s>bs){bs=s;best=d}});
+          // Economizing hurdle: a unit of capability earns about 1.6 × weight × slope per period for roughly 8 periods (3% depreciation, 10% discount), so invest only when weight × slope > 0.08.
+          if(best&&bs>.08)a[best]=spend;
+        }
+      }
+      const used=a.T+a.E+a.TC;
+      DIMS.forEach(d=>{if(a[d]>0&&u[d]>=max[d])waste+=a[d]});
+      spendAll+=used;
+      const main=used>0?DIMS.reduce((m,d)=>a[d]>a[m]?d:m,'T'):lastMain;
+      if(lastMain&&main&&main!==lastMain)pivots++;
+      lastMain=main;
+      DIMS.forEach(d=>x[d]=x[d]*.97+a[d]);
+      bank-=used;
+      // Stage 3: valuation
+      const u2={};DIMS.forEach(d=>u2[d]=util(d,x[d],kmul[d]));
+      const minSum=DIMS.reduce((s,d)=>s+mk.min[d],0);
+      const hn=DIMS.map(()=>gauss(hr));
+      // A delegated agent only values what its principal wrote into the brief: emotional utility barely counts.
+      const R=P.rule==='shift'?(t<P.periods/2?'human':'agent'):P.rule;
+      const w=R==='agent'?{T:1,E:.2,TC:1}:{T:1,E:1,TC:1};
+      // The floor this buyer actually enforces on each dimension (what a learning firm can discover).
+      const floor=d=>R==='conj'?mk.min[d]:R==='human'?.7*mk.min[d]:R==='persona'?0:(d==='E'?0:1.1*mk.min[d]);
+      const val=DIMS.reduce((s,d)=>s+w[d]*Math.min(u2[d],max[d]),0);
+      let pass;
+      if(R==='conj')pass=DIMS.every(d=>u2[d]>=mk.min[d]);
+      else if(R==='persona')pass=val>=minSum;
+      else if(R==='agent')pass=u2.T>=1.1*mk.min.T&&u2.TC>=1.1*mk.min.TC;
+      else pass=DIMS.every((d,i)=>u2[d]>=.7*mk.min[d]*(1+.3*hn[i]))&&val>=minSum;
+      trades++;
+      if(pass){ok++;bank+=1.6*val}
+      // Stages 5-6: learn from signal on attended dimensions
+      const order=[...DIMS].sort((m,n)=>(a[n]+x[n]*.01)-(a[m]+x[m]*.01));
+      order.slice(0,budgetAttn).forEach(d=>{
+        bel.max[d]+=.3*(max[d]+sigma*gauss(pr)-bel.max[d]);
+        bel.min[d]+=.3*(floor(d)+sigma*gauss(pr)-bel.min[d]);
+        bel.w[d]+=.3*(w[d]+sigma*gauss(pr)-bel.w[d]);
+      });
+      if(bank<=1e-9){alive=false;bank=0}
+      bankS.push(bank);allocS.push(a);failS.push(!pass);
+    }
+    out[p.id]={bank:bankS,alloc:allocS,fail:failS,alive,ok,trades,waste,spendAll,pivots,final:bankS.filter(v=>v!==null).slice(-1)[0]??0};
+  }
+  return out;
+}
+
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const COL={tech:'--t',bal:'--muted',slope:'--e',orch:'--tc'};
+const DASH={tech:[],bal:[4,4],slope:[],orch:[]};
+function prep(cv){const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;cv.width=w*dpr;cv.height=h*dpr;const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);return{c,w,h}}
+function axes(c,w,h,pad,ymax,ylab){
+  c.strokeStyle=css('--rule');c.fillStyle=css('--muted');c.font='11px '+css('--mono');c.lineWidth=1;
+  const ticks=4;for(let i=0;i<=ticks;i++){const v=ymax*i/ticks,y=h-pad.b-(h-pad.t-pad.b)*i/ticks;c.beginPath();c.moveTo(pad.l,y);c.lineTo(w-pad.r,y);c.stroke();c.textAlign='right';c.fillText(v.toFixed(ymax<5?1:0),pad.l-6,y+4)}
+  c.textAlign='left';c.fillText(ylab,pad.l,pad.t-6);
+  c.textAlign='center';const P=S.periods;for(let i=0;i<=P;i+=P>60?20:10){const xx=pad.l+(w-pad.l-pad.r)*i/P;c.fillText(String(i),xx,h-pad.b+16)}
+}
+function drawBank(res){
+  const cv=document.getElementById('bank'),{c,w,h}=prep(cv),pad={l:40,r:12,t:18,b:24};
+  let ymax=0;POL.forEach(p=>res[p.id].bank.forEach(v=>{if(v!==null&&v>ymax)ymax=v}));ymax=Math.max(5,Math.ceil(ymax/5)*5);
+  axes(c,w,h,pad,ymax,'resource bank');
+  const X=i=>pad.l+(w-pad.l-pad.r)*(i+1)/S.periods,Y=v=>h-pad.b-(h-pad.t-pad.b)*v/ymax;
+  POL.forEach(p=>{const s=res[p.id].bank;c.strokeStyle=css(COL[p.id]);c.lineWidth=2.25;c.setLineDash(DASH[p.id]);c.beginPath();let on=false;
+    s.forEach((v,i)=>{if(v===null)return;on?c.lineTo(X(i),Y(v)):c.moveTo(X(i),Y(v));on=true});c.stroke();c.setLineDash([]);
+    const li=s.map((v,i)=>v===null?-1:i).filter(i=>i>=0).pop();
+    if(li!==undefined){c.fillStyle=css(COL[p.id]);c.beginPath();c.arc(X(li),Y(s[li]),3.5,0,7);c.fill();
+      if(!res[p.id].alive){c.font='11px '+css('--mono');c.textAlign='center';c.fillText('exit',X(li),Y(s[li])-8)}}
+  });
+}
+function drawAlloc(res){
+  const cv=document.getElementById('alloc'),{c,w,h}=prep(cv),pad={l:40,r:12,t:18,b:24},f=res[S.firm];
+  axes(c,w,h,pad,1,'spend per period');
+  const bw=(w-pad.l-pad.r)/S.periods;
+  f.alloc.forEach((a,i)=>{let y=h-pad.b;const x0=pad.l+bw*i+bw*.12,bwi=bw*.76;
+    [['T','--t'],['E','--e'],['TC','--tc']].forEach(([d,col])=>{const hh=(h-pad.t-pad.b)*a[d];if(hh>0){c.fillStyle=css(col);c.fillRect(x0,y-hh,bwi,hh);y-=hh}});
+    if(f.fail[i]){c.fillStyle=css('--bad');c.beginPath();c.arc(pad.l+bw*i+bw/2,pad.t+4,Math.min(3.5,bw/2.5),0,7);c.fill()}
+  });
+}
+function summary(){
+  const agg={};POL.forEach(p=>agg[p.id]={surv:0,ok:0,tr:0,waste:0,spend:0,piv:0,fin:0});
+  const N=200;for(let s=1;s<=N;s++){const r=simulate(s*9973,S);POL.forEach(p=>{const a=agg[p.id],q=r[p.id];a.surv+=q.alive?1:0;a.ok+=q.ok;a.tr+=q.trades;a.waste+=q.waste;a.spend+=q.spendAll;a.piv+=q.pivots;a.fin+=q.final})}
+  const rows=POL.map(p=>{const a=agg[p.id];return{p,surv:a.surv/N,ok:a.tr?a.ok/a.tr:0,waste:a.spend?a.waste/a.spend:0,piv:a.piv/N,fin:a.fin/N}});
+  const bestFin=Math.max(...rows.map(r=>r.fin)),bestSurv=Math.max(...rows.map(r=>r.surv));
+  const pct=v=>(100*v).toFixed(0)+'%';
+  document.getElementById('summary').innerHTML=rows.map(r=>`<tr><td><i class="sw" style="background:var(${COL[r.p.id]})"></i> ${r.p.name}</td><td class="${r.surv===bestSurv?'best':''}">${pct(r.surv)}</td><td>${pct(r.ok)}</td><td>${pct(r.waste)}</td><td>${r.piv.toFixed(1)}</td><td class="${r.fin===bestFin?'best':''}">${r.fin.toFixed(1)}</td></tr>`).join('');
+}
+let res;
+function run(){res=simulate(S.seed,S);document.getElementById('seed').textContent=S.seed;drawBank(res);drawAlloc(res)}
+function all(){run();summary()}
+
+// controls
+const fmt={noise:v=>(+v).toFixed(2),attn:v=>v+' of 3',drift:v=>'+'+(+v).toFixed(4),ai:v=>'×'+(+v).toFixed(2),periods:v=>v};
+['noise','attn','drift','ai','periods'].forEach(id=>{const el=document.getElementById(id),o=document.getElementById(id+'-o');
+  const set=()=>{S[id]=+el.value;o.textContent=fmt[id](el.value)};set();el.addEventListener('input',()=>{set();all()})});
+const help={
+  human:'Screens on soft, noisy floors (about 70% of each minimum), then trades off: the total must clear the sum of the minimums.',
+  persona:'Trades everything off, with no screening and no noise. Only the total must clear the sum of the minimums.',
+  agent:'Applies its principal\'s hard floors on T and TC (110% of minimum) and gives emotional utility little weight, in valuation and in price.',
+  conj:'Reference rule: every dimension must clear its own minimum exactly, or the exchange fails.',
+  shift:'Human buyers for the first half of the run, then delegated agents. Learning firms have to notice the change.'};
+const RULES=['human','persona','agent','conj','shift'];
+const setRule=k=>{S.rule=k;RULES.forEach(r=>document.getElementById('rule-'+r).setAttribute('aria-pressed',r===k));document.getElementById('rule-help').textContent=help[k]};
+RULES.forEach(k=>document.getElementById('rule-'+k).addEventListener('click',()=>{setRule(k);all()}));
+setRule(S.rule);
+document.getElementById('reseed').addEventListener('click',()=>{S.seed=Math.floor(Math.random()*1e6);run()});
+const fp=document.getElementById('firmpick');
+POL.forEach(p=>{const b=document.createElement('button');b.textContent=p.name;b.setAttribute('aria-pressed',p.id===S.firm);b.addEventListener('click',()=>{S.firm=p.id;[...fp.children].forEach(x=>x.setAttribute('aria-pressed',x===b));drawAlloc(res)});fp.appendChild(b)});
+document.getElementById('bank-legend').innerHTML=POL.map(p=>`<span><i class="sw" style="background:var(${COL[p.id]})"></i>${p.name}</span>`).join('');
+window.addEventListener('resize',()=>{if(res){drawBank(res);drawAlloc(res)}});
+if(window.matchMedia)matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if(res){drawBank(res);drawAlloc(res)}});
+all();
+})();
+</script>
