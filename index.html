@@ -64,7 +64,13 @@ button:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid
 .legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-family:var(--mono);font-size:12px;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .sw{width:12px;height:12px;border-radius:2px;display:inline-block;flex:none}
-.tablewrap{overflow-x:auto}
+.tablewrap{overflow-x:auto;max-width:100%;min-width:0}
+textarea,select,input[type=number]{max-width:100%;min-width:0;width:100%;font:13px var(--mono);color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:8px}
+textarea{min-height:120px;resize:vertical}
+.sweepfields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sweepfields .wide{grid-column:1/-1}
+[hidden]{display:none!important}
+@media(max-width:420px){body{padding-inline:12px}.panel{padding:14px}.ctl label{font-size:13px}.stage>summary{flex-wrap:wrap}.stage>summary span{font-size:11px}.trace{overflow-wrap:anywhere}}
 table{border-collapse:collapse;width:100%;font-size:14px;min-width:720px}
 th,td{padding:8px 10px;border-bottom:1px solid var(--rule);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 th{font-family:var(--display);font-weight:500;color:var(--muted);font-size:13px;vertical-align:bottom}
@@ -91,7 +97,7 @@ code{font-family:var(--mono);font-size:13px}
 <header>
   <span class="eyebrow">v4 · A simulation of Meckler's six-stage dynamic symmetrical exchange model · JPIM RF 2026</span>
   <h1>Who learns fast enough to close the deal?</h1>
-  <p class="lede">Four focal firms each trade with a stakeholder in the same market. Both sides build technical (T), emotional (E) and transaction-cost (TC) utility on S-curves, value what they receive against their own floors, and learn from every round. Floors are deal-breakers, and they rise. The installed base and complements grow the same way for everyone; firms differ only in how they allocate and how much they attend to. Every input, moderator and modifier the paper names at each stage interface has a control on the left.</p>
+  <p class="lede">Four focal firms each trade with a stakeholder in the same market. Both sides build technical (T), emotional (E) and transaction-cost (TC) utility on S-curves, value what they receive against their own floors, and learn from every round. Floors are deal-breakers, and they rise. The installed base and complements grow the same way for everyone; firms can differ in allocation, learning, attention, noise and TC capability. Every input, moderator and modifier the paper names at each stage interface has a control on the left.</p>
   <noscript><p><strong>This page needs JavaScript to run the simulation.</strong> The variable map and the model specification below are readable without it.</p></noscript>
 </header>
 
@@ -101,7 +107,7 @@ code{font-family:var(--mono);font-size:13px}
       <button class="btn" id="reseed">Run a new random market</button>
       <button class="btn" id="reset">Reset to defaults</button>
     </div>
-    <small class="note">Seed <span id="seed" class="pill"></span>. The table averages <span id="nruns">200</span> random markets.</small>
+    <small class="note">Seed <span id="seed-display" class="pill"></span>. The table averages <span id="nruns">200</span> random markets.</small>
 
     <details class="stage" open>
       <summary>Stage 1 · Firm builds its package <span>RBV</span></summary>
@@ -115,7 +121,7 @@ code{font-family:var(--mono);font-size:13px}
       <summary>Stage 3 · Stakeholder values it <span>S-D logic</span></summary>
       <div class="stagebody" id="g3">
         <div class="ctl">
-          <span class="eyebrow">Who evaluates the offer</span>
+          <span class="eyebrow">Who evaluates the offer <span class="role">moderator</span></span>
           <div class="seg" role="group" aria-label="Evaluator type">
             <button id="rule-human" aria-pressed="true">Human</button>
             <button id="rule-persona" aria-pressed="false">AI persona</button>
@@ -139,16 +145,45 @@ code{font-family:var(--mono);font-size:13px}
       <summary>Stage 6 · Firm values the return <span>negotiation loop</span></summary>
       <div class="stagebody" id="g6"></div>
     </details>
+    <details class="stage"><summary>Advanced <span>model assumptions</span></summary><div class="stagebody" id="ga"></div></details>
+    <details class="stage"><summary>Firms <span>individual overrides</span></summary><div class="stagebody" id="firms"></div></details>
+    <details class="stage"><summary>Share settings <span>link / JSON</span></summary>
+      <div class="stagebody">
+        <div class="btnrow"><button class="btn" id="copy-link">Copy settings link</button><button class="btn" id="export-json">Export JSON</button><button class="btn" id="import-json">Import JSON</button></div>
+        <div id="link-box" hidden><label for="settings-link">Settings link (select and copy)</label><textarea id="settings-link" readonly></textarea></div>
+        <div id="export-box" hidden><label for="settings-json">Non-default settings</label><textarea id="settings-json" readonly></textarea><button class="btn" id="copy-json">Copy JSON</button></div>
+        <div id="import-box" hidden><label for="import-text">Paste a settings object (replaces current settings)</label><textarea id="import-text"></textarea><button class="btn" id="apply-json">Apply settings</button></div>
+        <p id="settings-status" class="note" role="status" aria-live="polite"></p>
+      </div>
+    </details>
   </aside>
 
   <section class="readouts">
+    <details class="panel doc" id="sweep-panel">
+      <summary>Sweep · compare one setting</summary>
+      <div class="stagebody">
+        <div class="sweepfields">
+          <label class="wide" for="sweep-control">Control<select id="sweep-control"></select></label>
+          <label for="sweep-low">From<input type="number" id="sweep-low"></label>
+          <label for="sweep-high">To<input type="number" id="sweep-high"></label>
+          <label for="sweep-steps">Steps (5–11)<input type="number" id="sweep-steps" min="5" max="11" value="7" step="1"></label>
+          <label for="sweep-metric">Firm metric<select id="sweep-metric"><option value="surv">Survival</option><option value="fin">Final bank</option><option value="ok">Formalized share</option><option value="waste">Wasted spend</option></select></label>
+        </div>
+        <button class="btn" id="run-sweep">Run sweep</button>
+        <p class="note" id="sweep-status" role="status">Uses the same fixed-seed markets at each point. Runs only when you click.</p>
+        <canvas class="chart short" id="sweep-chart" role="img" aria-label="Sweep results, one line per firm" hidden></canvas>
+        <div class="legend" id="sweep-legend"></div>
+        <div class="tablewrap" id="sweep-results"></div>
+      </div>
+    </details>
     <div class="panel">
       <h2>Resource bank over time</h2>
       <canvas class="chart" id="bank" role="img" aria-label="Line chart of each focal firm's resource bank by period"></canvas>
       <div class="legend" id="bank-legend"></div>
     </div>
     <div class="panel">
-      <h2>One firm, period by period</h2>
+      <h2>One firm, period by period <span class="role">input</span></h2>
+      <p class="note">Choose which firm’s spending and exchange trace to display.</p>
       <div class="firmpick" id="firmpick" role="group" aria-label="Choose firm"></div>
       <canvas class="chart" id="alloc" role="img" aria-label="Stacked bars of the chosen firm's spend on T, E and TC per period, with a strip showing each period's exchange status"></canvas>
       <div class="legend">
@@ -183,22 +218,25 @@ code{font-family:var(--mono);font-size:13px}
       <tr><td>3 Stakeholder values</td><td>Augmented package</td><td>Evaluator type (System 1 / System 2 routines); operant resources; friction abort; value-in-context shocks; Minimum Necessary floors (<em>rising</em>) and Maximum Demanded ceilings (<em>T drift</em>)</td><td>Phenomenologically assigned value; pass or deal-breaker</td></tr>
       <tr><td>4 Stakeholder offers</td><td>Stakeholder resource bank (<em>income</em>, <em>value-to-resource rate</em>)</td><td>Power-dependence (<em>market alternatives</em>); opening share; the stakeholder's own S-curves for advocacy (E) and cooperation (TC)</td><td>Reciprocal package: payment, advocacy, cooperation</td></tr>
       <tr><td>5 Return and signal</td><td>Reciprocal package</td><td>Complements on the return trip (payment rails); signal clarity (<em>signal noise</em>); absorptive capacity (<em>learning rate</em>, <em>attention budget</em>)</td><td>Augmented reciprocal package; information signal</td></tr>
-      <tr><td>6 Firm values</td><td>Augmented reciprocal package; signal</td><td>Firm's own floors (<em>payment floor</em>, <em>cooperation floor</em>, rising); tolerance for loops (<em>renegotiation rounds</em>, <em>reinnovation tolerance</em>)</td><td>Exchange status: Formalization, Renegotiation, Reinnovation, Termination</td></tr>
+      <tr><td>6 Firm values</td><td>Augmented reciprocal package; signal</td><td>Firm's own floors (payment, advocacy and cooperation, with separate rise rates); tolerance for loops (<em>renegotiation rounds</em>, <em>reinnovation tolerance</em>)</td><td>Exchange status: Formalization, Renegotiation, Reinnovation, Termination</td></tr>
     </tbody>
   </table></div>
+  <p class="note">Complete control reference, including advanced assumptions and firm overrides:</p>
+  <div class="tablewrap"><table class="vmap"><thead><tr><th>Location</th><th>Control (settings key)</th><th>Role</th><th>Meaning</th></tr></thead><tbody id="control-map"></tbody></table></div>
 </details>
 
 <details class="panel doc">
   <summary>How the model works</summary>
   <div class="spec">
-    <p><strong>One period is one pass through the six stages</strong>, with the Stage 4–6 negotiation loop running inside the period. All four firms face identical copies of the same stakeholder and the same shared environment, so differences come only from firm policy.</p>
-    <p><strong>S-curves.</strong> Each dimension's utility is a logistic function of a capability stock: <code>u(x) = L·(σ(k(x−m)) − σ(−km)) / (1 − σ(−km))</code>. T has the highest ceiling and the slowest take-off; E and TC are cheaper but cap lower. Stocks depreciate 3% per period; E decays faster by the <em>E decay</em> setting. The stakeholder's advocacy (E) and cooperation (TC) capabilities use the same curve shapes.</p>
-    <p><strong>Stage 1.</strong> A firm spends up to its per-period budget. Below the <em>triage level</em> it funds only T (the paper's retreat to core survival). Otherwise it first repairs any dimension it believes is below the stakeholder's floor, because a floor breach is a deal-breaker. Then the policy decides the rest. <em>Technical-first</em> puts the rest on T. <em>Balanced</em> splits it three ways. <em>Slope-hunter</em> ranks curves by believed weight × slope, skips any dimension it believes is at the Maximum Demanded level, and invests only when that clears a break-even hurdle of 0.08; otherwise it saves. <em>Orchestrated</em> uses the same rule with full attention, half the signal noise, full attention to the network, and an AI multiplier on its TC curve. Switching the main dimension loses a share of that period's capability gain (<em>pivot friction</em>). When planning, firms see the network's contribution only in proportion to their <em>network attention</em>.</p>
-    <p><strong>Stage 2.</strong> Installed base and complements grow on logistic paths with the same size and speed for every firm, plus a co-evolution increment for every formalized exchange in the market. Complements add to T; the installed base adds to TC and, with the segment's valence, to E (negative for exclusivity segments). Exogenous friction subtracts from TC.</p>
-    <p><strong>Stage 3.</strong> The stakeholder's floors rise each period (capped below the ceilings). Utility above the Maximum Demanded level adds nothing. <em>Human:</em> perceives each dimension with noise, rejects outright if TC is below the friction-abort level, enforces every floor, then requires total value to clear the sum of floors. <em>AI persona:</em> trades off only; no floors, no noise, no abort. <em>Delegated agent:</em> hard floors on T and TC at 110%, emotional weight 0.2, no E floor. <em>Commodity buyer:</em> weights TC heavily and E at zero (the paper's purchasing-algorithm example). Operant resources scale how much T the stakeholder can extract. Value-in-context shocks temporarily move weight from T to TC for every firm.</p>
-    <p><strong>Stage 4.</strong> The stakeholder's dependence is <code>V / (V + alternatives)</code>. It opens by paying its believed version of the firm's payment floor plus a share of its remaining surplus that grows with dependence, never more than 90% of the value it assigned (converted to resources at the <em>value-to-resource rate</em>), and never more than its bank. It also invests in advocacy and cooperation when it believes they are below the firm's floors (both sides repair deal-breakers).</p>
-    <p><strong>Stage 5.</strong> Complements augment the cooperation the firm receives (payment rails). The firm reads a noisy signal of the stakeholder's floors, ceilings and weights on the dimensions it attends to; every firm learns which floor broke after a deal-breaker.</p>
-    <p><strong>Stage 6.</strong> The firm's floors are a payment floor (rising) and a cooperation floor. <em>Great</em> clears the payment floor by 30%; <em>OK</em> clears both floors; <em>not good enough</em> triggers renegotiation: the firm states its shortfall, the stakeholder raises payment or cooperation if its surplus and bank allow, and both update their beliefs. If the rounds run out, or the stakeholder rejected in Stage 3, the period ends with no exchange and the firm reinnovates next period. After more consecutive no-deal periods than its <em>reinnovation tolerance</em>, the firm terminates. A formalized exchange pays the firm the payment plus a conversion share of the advocacy and cooperation it received, and adds to the installed base.</p>
+    <p><strong>One period is one pass through the six stages</strong>, with the Stage 4–6 negotiation loop running inside the period. All four firms face identical copies of the same stakeholder and the same shared environment, so differences come from firm policy and the individual overrides in Firms. The paper supplies the architecture; numeric defaults are illustrative assumptions that you can change.</p>
+    <p><strong>S-curves.</strong> Each dimension's utility is a logistic function of a capability stock: <code>u(x) = L·(σ(k(x−m)) − σ(−km)) / (1 − σ(−km))</code>. By default T has the highest ceiling and the slowest take-off; E and TC are cheaper but cap lower. Stocks depreciate by the <em>capability depreciation</em> setting each period; E decays faster by the <em>E decay</em> setting. Each T, E and TC curve has adjustable steepness (k), midpoint (m) and ceiling (L) in Advanced. The stakeholder uses the E and TC shapes with separate advocacy and cooperation scales. Starting stocks and all initial beliefs are adjustable there too.</p>
+    <p><strong>Stage 1.</strong> A firm spends up to its per-period budget. It first repairs any dimension it believes is below the stakeholder's floor, because a floor breach is a deal-breaker, splitting its budget across deficient dimensions. Repair takes priority over triage and policy; if no repair is needed, a bank below the <em>triage level</em> funds only T. Otherwise the policy chooses the allocation. <em>Technical-first</em> puts the rest on T. <em>Balanced</em> splits it three ways. <em>Slope-hunter</em> ranks curves by believed weight × slope, skips any dimension it believes is at the Maximum Demanded level, and invests only when that clears the adjustable <em>slope-hunter hurdle</em>; otherwise it saves. <em>Orchestrated</em> uses the same rule with full attention, half the signal noise, full attention to the network, and an AI multiplier on its TC curve. The Firms section can override learning, attention, network attention, noise and TC steepness separately for any firm. Turning learning off freezes all of that firm’s beliefs; the stakeholder still learns. Switching the main dimension loses a share of that period's capability gain (<em>pivot friction</em>). When planning, firms see the network's contribution only in proportion to their <em>network attention</em>.</p>
+    <p><strong>Stage 2.</strong> Installed base and complements grow on logistic paths with the same size, speed and midpoint for every firm. Separate co-evolution increments add to installed base and complements after each formalized exchange; installed base has an adjustable cap. Complements add to T; the installed base adds to TC and, with the segment's valence, to E (negative for exclusivity segments). Exogenous friction subtracts from TC.</p>
+    <p><strong>Stage 3.</strong> The stakeholder's floors rise each period (capped at the configured share of demand ceilings). Utility above the Maximum Demanded level adds nothing. <em>Human:</em> perceives each dimension with noise, rejects outright if TC is below the friction-abort level, enforces every floor, then requires total value to clear the sum of floors. <em>AI persona:</em> no noise and no abort; it enforces only the <em>AI persona screening</em> share of each floor (0 by default, so it trades off only; evidence that LLMs sometimes choose lexicographically argues for testing higher values); total value must still clear the sum of market floors. <em>Delegated agent:</em> hard floors on T and TC at the adjustable agent floor multiplier, with an adjustable emotional weight, no E floor. <em>Commodity buyer:</em> weights TC heavily and E at zero (the paper's purchasing-algorithm example). Operant resources scale how much T the stakeholder can extract. Value-in-context shocks multiply the three weights for every firm by the Advanced context multipliers for the configured duration. Market floor and demand ranges, the floor cap and all evaluator weights are adjustable in Advanced.</p>
+    <p><strong>Stage 4.</strong> The stakeholder's dependence is <code>V / (V + alternatives)</code>. It opens by paying its believed version of the firm's payment floor plus a share of its remaining surplus that grows with dependence, never more than its adjustable maximum share of the value it assigned (converted to resources at the <em>value-to-resource rate</em>), and never more than its bank. It also invests in advocacy and cooperation when it believes they are below the firm's floors. Repair costs and capability gains, discretionary advocacy, initial bank and floor beliefs, and its probing behavior are adjustable in Advanced.</p>
+    <p><strong>Stage 5.</strong> Complements augment the cooperation the firm receives (payment rails). The firm reads a noisy signal of the stakeholder's floors, ceilings and weights on the dimensions it attends to; learning-enabled firms also receive a broken-floor signal. Advanced controls set noise on those signals, failure-belief adjustments, and the stock tie-break weight in attention ranking. Operant resources affect both planning and actual technical utility.</p>
+    <p><strong>Stage 6.</strong> The firm's payment, advocacy and cooperation floors each rise at their own adjustable multiple of the common rise. <em>Great</em> clears all three floors and the adjustable great-payment multiple; <em>OK</em> clears all three floors; <em>not good enough</em> triggers renegotiation: the firm states its shortfall, the stakeholder raises payment, advocacy or cooperation if its value limit and remaining bank allow, and both update their beliefs. If the rounds run out, or the stakeholder rejected in Stage 3, the period ends with no exchange and the firm reinnovates next period. After more consecutive no-deal periods than its <em>reinnovation tolerance</em>, the firm terminates. Every repair reduces the remaining bank available for payment, and every floor must clear before either side transfers payment. A formalized exchange pays the firm the payment plus a conversion share of the advocacy and cooperation it received, and adds the configured co-evolution increments to both shared network paths.</p>
+    <p><strong>Settings and experiments.</strong> Every numeric model assumption has a control and a row in the complete control reference. Advanced starts collapsed. Firm overrides use −1 for shared attention settings and 0 for the default TC multiplier. Non-default settings, evaluator, illustrated firm and seed are saved in the URL; JSON import replaces all settings and restores omitted keys to defaults. Reset restores the original seed and all default controls. The summary uses 50–1000 fixed-seed markets. Sweep varies one numeric control across 5–11 points, using the same markets at each point, and runs only on a button click. Discrete controls can repeat values after rounding to their step size. Survival is the share alive at the end; formalized share is successful exchanges divided by active periods; wasted spend is spend on dimensions already at Maximum Demanded, divided by total spend; final bank is averaged across all markets, including exits.</p>
     <p><strong>Limits.</strong> One stakeholder segment per market, no competition between the focal firms for the same stakeholder, and stylized functional forms. It shows how the model's stated logic behaves under different settings. It does not test the theory.</p>
   </div>
 </details>
@@ -208,7 +246,7 @@ code{font-family:var(--mono);font-size:13px}
 <script>
 (function(){
 const DIMS=['T','E','TC'];
-const CURVE={T:{k:.6,m:6,L:1.0},E:{k:.9,m:3,L:.6},TC:{k:1.2,m:2,L:.5}};
+
 const POL=[{id:'tech',name:'Technical-first'},{id:'bal',name:'Balanced'},{id:'slope',name:'Slope-hunter'},{id:'orch',name:'Orchestrated (AI)'}];
 
 // Every control: [id, group, label, role, min, max, step, default, help, format]
@@ -217,7 +255,7 @@ const CTL=[
  ['spend','g1','Spend per period','input',.5,2,.1,1,'Most the firm can invest in one period.',v=>(+v).toFixed(1)],
  ['dyncap','g1','Conversion efficiency','moderator',.5,1.5,.05,1,'Dynamic capabilities: capability gained per unit spent.',v=>'×'+(+v).toFixed(2)],
  ['attn','g1','Attention budget (unaided firms)','moderator',1,3,1,1,'Dimensions an unaided learning firm reads signals on each period. It reads where it already invests most. The orchestrated firm reads all 3.',v=>v+' of 3'],
- ['triage','g1','Triage level','moderator',0,4,.5,1.5,'Below this bank level a firm funds only T.',v=>(+v).toFixed(1)],
+ ['triage','g1','Triage level','moderator',0,4,.5,1.5,'Below this bank level a firm funds only T after repairing believed deal-breakers.',v=>(+v).toFixed(1)],
  ['pivot','g1','Pivot friction','modifier',0,.6,.05,.15,'Share of a period\'s capability gain lost when the main investment dimension changes (path dependence).',v=>(100*v).toFixed(0)+'%'],
  ['edecay','g1','E decay (volatility)','modifier',0,.1,.01,.02,'Extra per-period decay of emotional capability on both sides.',v=>'+'+(100*v).toFixed(0)+'%'],
  ['ai','g1','AI steepens TC curve','modifier',1,3,.25,1.5,'Multiplier on TC curve steepness, orchestrated firm only.',v=>'×'+(+v).toFixed(2)],
@@ -229,11 +267,12 @@ const CTL=[
  ['netattn','g2','Network attention (unaided firms)','moderator',0,1,.1,.3,'How much of the network\'s contribution unaided firms see when planning. The orchestrated firm sees all of it.',v=>(100*v).toFixed(0)+'%'],
  ['valence','g2','Installed base valence on E','modifier',-1,1,.1,0,'Positive: popularity adds emotional utility. Negative: it erodes exclusivity.',v=>(v>0?'+':'')+(+v).toFixed(1)],
  ['exofric','g2','Exogenous friction','modifier',0,.2,.01,0,'Regulatory or infrastructure friction subtracted from TC.',v=>(+v).toFixed(2)],
+ ['personafloor','g3','AI persona screening','moderator',0,1,.05,0,'Share of each floor an AI persona enforces. 0 = trades off only. Goli and Singh (2024) found GPT-3.5 chose lexicographically, so screening may be higher than 0.',v=>(100*v).toFixed(0)+'%'],
  ['operant','g3','Operant resources','moderator',.4,1,.05,1,'How much of the technical utility the stakeholder can actually use.',v=>(100*v).toFixed(0)+'%'],
  ['abort','g3','Friction abort level','moderator',0,.15,.01,.03,'A human evaluator rejects outright when TC is below this (System 1 aborts before System 2 starts).',v=>(+v).toFixed(2)],
  ['floorrise','g3','Floors rise per period','modifier',0,.006,.0005,.002,'How fast every Minimum Necessary floor rises, on both sides.',v=>'+'+(+v).toFixed(4)],
  ['drift','g3','Max-demanded T drift','modifier',0,.02,.0025,.005,'How fast the ceiling on technical utility rises (overshoot dynamics).',v=>'+'+(+v).toFixed(4)],
- ['ctx','g3','Context shock chance','moderator',0,.1,.01,.02,'Per-period chance the stakeholder\'s context shifts weight from T to TC for 6 periods.',v=>(100*v).toFixed(0)+'%'],
+ ['ctx','g3','Context shock chance','moderator',0,.1,.01,.02,'Per-period chance of a shared weight shock; duration and weight multipliers are in Advanced.',v=>(100*v).toFixed(0)+'%'],
  ['alt','g4','Stakeholder\'s market alternatives','moderator',0,2,.1,.5,'Outside options. More alternatives mean lower dependence and leaner offers.',v=>(+v).toFixed(1)],
  ['income','g4','Stakeholder income per period','input',.5,3,.1,1.5,'Resources added to the stakeholder\'s bank each period.',v=>(+v).toFixed(1)],
  ['rate','g4','Value-to-resource rate','input',.8,3,.1,1.6,'Resources a stakeholder can pay per unit of value it assigns (market size and price level).',v=>'×'+(+v).toFixed(1)],
@@ -241,89 +280,186 @@ const CTL=[
  ['noise','g5','Signal noise','moderator',0,.5,.05,.2,'How unclear the revealed-preference signal is.',v=>(+v).toFixed(2)],
  ['lr','g5','Learning rate','moderator',.05,.8,.05,.3,'Absorptive capacity: how far each signal moves beliefs, on both sides.',v=>(+v).toFixed(2)],
  ['payfloor','g6','Firm payment floor','moderator',.2,2,.05,.8,'Minimum payment the firm accepts (rises with the floors).',v=>(+v).toFixed(2)],
- ['coopfloor','g6','Firm cooperation floor','moderator',0,.2,.01,.04,'Minimum transaction-cost utility the firm needs from the stakeholder.',v=>(+v).toFixed(2)],
+ ['coopfloor','g6','Firm cooperation floor','moderator',0,.2,.01,.04,'Initial minimum cooperation utility the firm needs; it rises at the Advanced cooperation rate.',v=>(+v).toFixed(2)],
  ['rounds','g6','Renegotiation rounds','moderator',0,6,1,3,'Stage 4–5 loops allowed inside one period.',v=>v],
  ['tol','g6','Reinnovation tolerance','moderator',1,12,1,5,'Consecutive no-deal periods before the firm terminates.',v=>v],
  ['conv','g6','Non-cash conversion','modifier',0,1,.05,.5,'Share of received advocacy and cooperation that replenishes the bank.',v=>(100*v).toFixed(0)+'%'],
  ['periods','g6','Periods','input',20,120,10,60,'Length of the run.',v=>v],
 ];
+// Advanced assumptions remain ordinary CTL entries, including firm overrides.
+const number=v=>Number(v).toLocaleString('en',{maximumFractionDigits:4});
+const add=(id,label,role,min,max,step,value,help,g='ga')=>CTL.push([id,g,label,role,min,max,step,value,help,number]);
+for(const [d,k,m,L] of [['T',.6,6,1],['E',.9,3,.6],['TC',1.2,2,.5]]){
+  add('k'+d,d+' curve steepness','modifier',.05,5,.05,k,'How quickly '+d+' utility takes off as capability grows.');
+  add('m'+d,d+' curve midpoint','modifier',0,20,.1,m,'Capability stock at the middle of the '+d+' curve.');
+  add('L'+d,d+' utility ceiling','modifier',.05,5,.05,L,'Maximum stand-alone '+d+' utility that capability can create.');
+}
+for(const [id,label,role,lo,hi,step,val,help] of [
+ ['shEScale','Advocacy scale','modifier',0,3,.05,.5,'Scale of the stakeholder’s E utility relative to the E curve.'],
+ ['shTCScale','Cooperation scale','modifier',0,3,.05,.5,'Scale of the stakeholder’s TC utility relative to the TC curve.'],
+ ['depreciation','Capability depreciation','modifier',0,.5,.01,.03,'Share of both sides’ capability stocks lost each period, plus E decay.'],
+ ['hurdle','Slope-hunter hurdle','moderator',0,.5,.01,.08,'Minimum weighted marginal utility required before a hunter spends.'],
+ ['repair','Repair margin','moderator',1,2,.01,1.05,'Repair starts below this multiple of a believed floor.'],
+ ['great','Great-offer threshold','moderator',1,3,.05,1.3,'A passing payment is great at this multiple of the firm payment floor.'],
+ ['renegstep','Renegotiation payment step','modifier',0,1,.01,.15,'Maximum payment increase per round as a share of assigned resource value.'],
+ ['maxshare','Stakeholder maximum payment share','moderator',0,1,.01,.9,'Maximum share of assigned resource value the stakeholder will pay.'],
+ ['probe','Stakeholder probing discount','modifier',0,1,.01,.97,'Multiplier on learned payment expectations when outside options are strong.'],
+ ['depcut','Probing dependence cutoff','moderator',0,1,.05,.6,'Probe lower next time when dependence is below this level.'],
+ ['shbank0','Stakeholder starting bank','input',0,30,.5,3,'Resources each identical stakeholder starts with.'],
+ ['shE0','Stakeholder starting advocacy stock','input',0,20,.1,1,'Initial capability stock used to provide advocacy.'],
+ ['shTC0','Stakeholder starting cooperation stock','input',0,20,.1,1,'Initial capability stock used to provide cooperation.'],
+ ['shBelPay','Stakeholder starting payment belief','input',0,3,.05,.4,'Initial belief about the payment the firm requires.'],
+ ['shBelE','Stakeholder starting advocacy-floor belief','input',0,1,.01,0,'Initial belief about the advocacy the firm requires.'],
+ ['shBelCoop','Stakeholder starting cooperation belief','input',0,1,.01,.03,'Initial belief about the cooperation the firm requires.'],
+ ['agentfloor','Agent floor multiplier','moderator',1,2,.05,1.1,'Delegated agents enforce T and TC floors at this multiple.'],
+ ['pernoise','Human perception noise','moderator',0,1,.01,.1,'Size of random variation in human perceptions of the offered utility.'],
+ ['ctxlength','Context-shock length','moderator',1,30,1,6,'Number of periods each shared context shock lasts.'],
+ ['ctxT','Context T weight multiplier','modifier',0,3,.1,.4,'Multiplier on technical value weight during a context shock.'],
+ ['ctxE','Context E weight multiplier','modifier',0,3,.1,1,'Multiplier on emotional value weight during a context shock.'],
+ ['ctxTC','Context TC weight multiplier','modifier',0,3,.1,1.8,'Multiplier on transaction-cost value weight during a context shock.'],
+ ['augT','Complements → T coefficient','modifier',0,1,.01,.15,'Technical utility added per unit of complements, scaled by operant resources.'],
+ ['augE','Installed base → E coefficient','modifier',0,1,.01,.15,'Emotional utility added per unit of installed base, scaled by valence.'],
+ ['augTC','Installed base → TC coefficient','modifier',0,1,.01,.15,'Transaction-cost utility added per unit of installed base.'],
+ ['returnTC','Complements → cooperation coefficient','modifier',0,1,.01,.1,'Cooperation utility added by complements on the return trip.'],
+ ['midpoint','Network logistic midpoint','modifier',0,120,1,30,'Period at the middle of both shared network growth paths.'],
+ ['ibcap','Installed-base index cap','moderator',0,5,.1,1.5,'Upper bound on installed base including exchange-driven growth.'],
+ ['ccoevo','Complement growth per exchange','modifier',0,.02,.0025,0,'Shared complement growth added by each formalized exchange.'],
+ ['floorcap','Floor cap relative to demand','moderator',.1,1,.05,.9,'Stakeholder floors stop rising at this share of Maximum Demanded utility.'],
+ ['payrise','Payment floor rise multiplier','modifier',0,10,.25,4,'Payment floor rises by this multiple of the common floor rise.'],
+ ['cooprise','Cooperation floor rise multiplier','modifier',0,5,.1,1,'Cooperation floor rises by this multiple of the common floor rise.'],
+ ['efloor','Firm advocacy floor','moderator',0,1,.01,0,'Minimum advocacy utility required by the firm.'],
+ ['erise','Advocacy floor rise multiplier','modifier',0,5,.1,1,'Advocacy floor rises by this multiple of the common floor rise.'],
+ ['shGain','Stakeholder repair capability gain','modifier',.05,3,.05,.5,'Capability gained by one stakeholder repair investment.'],
+ ['shCost','Stakeholder repair cost','input',.01,2,.01,.3,'Resources spent on each stakeholder repair investment.'],
+ ['shAdvDep','Discretionary advocacy dependence cutoff','moderator',0,1,.05,.5,'Extra advocacy is offered when dependence exceeds this level.'],
+ ['shAdvBank','Discretionary advocacy bank threshold','moderator',0,5,.1,1,'Extra advocacy is offered only above this resource-bank level.'],
+ ['shAdvGain','Discretionary advocacy gain','modifier',0,1,.01,.2,'Extra advocacy capability gained per unit of dependence.'],
+ ['shAdvCost','Discretionary advocacy cost','input',0,1,.01,.1,'Resources spent on one discretionary advocacy investment.'],
+ ['breaknoise','Deal-breaker signal noise scale','modifier',0,2,.05,.5,'Noise multiplier for a revealed broken-floor signal.'],
+ ['totalbump','Total-value failure belief multiplier','modifier',1,1.5,.01,1.04,'Raise believed floors by this factor after a total-value rejection.'],
+ ['paybump','Return-offer failure belief multiplier','modifier',1,1.5,.01,1.02,'Raise believed stakeholder floors after the return offer cannot satisfy the firm.'],
+ ['attnstock','Attention stock tie-break weight','moderator',0,.2,.005,.01,'Capability-stock influence when ranking which dimensions receive attention.'],
+ ['markets','Summary markets','input',50,1000,1,200,'Number of fixed-seed markets averaged in the table and each sweep point.']
+])add(id,label,role,lo,hi,step,val,help);
+for(const [d,x,mn,mx] of [['T',4,.2,1],['E',1.5,.05,.3],['TC',1,.05,.3]]){
+  add('x0'+d,'Firm starting '+d+' stock','input',0,20,.1,x,'Initial '+d+' capability stock for every firm.');
+  add('belMin'+d,'Starting '+d+' floor belief','input',0,2,.01,mn,'Initial firm belief about the stakeholder’s '+d+' deal-breaker floor.');
+  add('belMax'+d,'Starting '+d+' demand belief','input',0,3,.01,mx,'Initial firm belief about Maximum Demanded '+d+' utility.');
+  add('belW'+d,'Starting '+d+' weight belief','input',0,3,.1,1,'Initial firm belief about the stakeholder’s '+d+' value weight.');
+}
+for(const [r,values] of [['human',[1,1,1]],['persona',[1,1,1]],['agent',[1,.2,1]],['tcbuyer',[.8,0,1.6]]])
+  DIMS.forEach((d,i)=>add(r+'W'+d,r+' '+d+' value weight','moderator',0,3,.1,values[i],'How much a '+r+' evaluator values '+d+' utility.'));
+for(const [kind,values] of [['min',[[.25,.4],[.05,.15],[.05,.15]]],['max',[[.5,.7],[.35,.55],[.3,.45]]]])
+  DIMS.forEach((d,i)=>['Low','High'].forEach((edge,j)=>add(kind+d+edge,d+' '+(kind==='min'?'floor':'demand')+' draw '+edge.toLowerCase(),'moderator',0,3,.01,values[i][j],'One endpoint of the random market '+d+' '+(kind==='min'?'floor':'Maximum Demanded')+' range; endpoints are sorted.')));
+POL.forEach(p=>{
+  const g='gf-'+p.id,orch=p.id==='orch';
+  add(p.id+'Learns','Learns','moderator',0,1,1,1,'Whether this firm updates any beliefs from signals and failed offers.',g);
+  add(p.id+'Attn','Attention override','moderator',-1,3,1,-1,'−1 uses the shared budget (AI: 3); otherwise read this many dimensions.',g);
+  add(p.id+'Net','Network attention override','moderator',-1,1,.1,-1,'−1 uses shared network attention (AI: 1); otherwise use this fraction.',g);
+  add(p.id+'Noise','Signal-noise multiplier','modifier',0,3,.1,orch?.5:1,'Multiply shared signal noise for this firm.',g);
+  add(p.id+'AI','AI TC multiplier override','modifier',0,3,.05,0,'0 uses the shared AI multiplier for AI and 1 for other firms; otherwise use this multiplier.',g);
+});
+add('seed','Illustrated market seed','input',0,4294967295,1,7,'Seed of the single illustrated market; summary markets always use fixed seeds.');
 const DEF={rule:'human',seed:7,firm:'slope'};CTL.forEach(c=>DEF[c[0]]=c[7]);
 const S={...DEF};
+
+const RULES=['human','persona','agent','tcbuyer','shift'];
+function settings(over={},strict=false){
+  if(!over||Array.isArray(over)||typeof over!=='object')throw Error('Use a JSON object of settings.');
+  const out={...DEF};
+  for(const [k,v] of Object.entries(over)){
+    const c=CTL.find(c=>c[0]===k);
+    let ok=false,value=v;
+    if(c){value=typeof v==='number'?v:(strict?NaN:Number(v));ok=Number.isFinite(value)&&value>=c[4]&&value<=c[5];if(ok)value=+(c[4]+Math.round((value-c[4])/c[6])*c[6]).toFixed(8)}
+    else if(k==='rule')ok=RULES.includes(v);
+    else if(k==='firm')ok=POL.some(p=>p.id===v);
+    if(ok)out[k]=value;else if(strict)throw Error('Unknown or invalid setting: '+k);
+  }
+  return out;
+}
+function resetSettings(target){Object.keys(target).forEach(k=>delete target[k]);Object.assign(target,DEF);return target}
+function changedSettings(P){return Object.fromEntries(Object.entries(DEF).filter(([k,v])=>P[k]!==v).map(([k])=>[k,P[k]]))}
+function summarize(P,N=P.markets){
+  const agg={};POL.forEach(p=>agg[p.id]={surv:0,ok:0,per:0,reneg:0,reinno:0,term:0,bk:0,waste:0,spend:0,fin:0,sur:0});
+  for(let s=1;s<=N;s++){const r=simulate(s*9973,P,false);POL.forEach(p=>{const a=agg[p.id],q=r[p.id];a.surv+=q.alive?1:0;a.ok+=q.ok;a.per+=q.periods;a.reneg+=q.reneg;a.reinno+=q.reinno;a.term+=q.why==='terminated'?1:0;a.bk+=q.why==='bankrupt'?1:0;a.waste+=q.waste;a.spend+=q.spendAll;a.fin+=q.final;a.sur+=q.surplus})}
+  return POL.map(p=>{const a=agg[p.id];return{p,surv:a.surv/N,ok:a.per?a.ok/a.per:0,reneg:a.ok?a.reneg/a.ok:0,reinno:a.reinno/N,term:a.term/N,bk:a.bk/N,waste:a.spend?a.waste/a.spend:0,fin:a.fin/N,sur:a.sur/N}});
+}
 
 function rng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
 function gauss(r){let u=0,v=0;while(!u)u=r();v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
 const sig=z=>1/(1+Math.exp(-z));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function util(d,x,kmul){const c=CURVE[d],k=c.k*kmul,b=sig(-k*c.m);return c.L*(sig(k*(Math.max(0,x)-c.m))-b)/(1-b)}
-function slope(d,x,kmul){return (util(d,x+.05,kmul)-util(d,x,kmul))/.05}
+function util(d,x,kmul,P){const k=P['k'+d]*kmul,m=P['m'+d];return P['L'+d]*sig(k*(Math.max(0,x)-m))*(-Math.expm1(-k*Math.max(0,x)))}
+function slope(d,x,kmul,P){const k=P['k'+d]*kmul,z=sig(k*(Math.max(0,x)-P['m'+d]));return P['L'+d]*k*z*(1-z)/(1-sig(-k*P['m'+d]))}
 function logistic(t,size,speed,mid){return size*sig(speed*(t-mid))}
 
 function simulate(seed,P,wantTrace){
   const er=rng(seed);
-  const mk={min:{T:.25+.15*er(),E:.05+.1*er(),TC:.05+.1*er()},max:{T:.5+.2*er(),E:.35+.2*er(),TC:.3+.15*er()}};
+  const mk={min:{},max:{}};for(const kind of ['min','max'])DIMS.forEach(d=>{const lo=P[kind+d+'Low'],hi=P[kind+d+'High'];mk[kind][d]=Math.min(lo,hi)+Math.abs(hi-lo)*er()});
   // Shared environment path: context shocks drawn once for the market.
-  const shock=[];let left=0;for(let t=0;t<P.periods;t++){if(left>0)left--;else if(er()<P.ctx)left=6;shock.push(left>0)}
+  const shock=[];let left=0;for(let t=0;t<P.periods;t++){if(left>0)left--;else if(er()<P.ctx)left=P.ctxlength;shock.push(left>0)}
   const F=POL.map(p=>{
     const orch=p.id==='orch';
-    return{p,orch,kmul:{T:1,E:1,TC:orch?P.ai:1},x:{T:4,E:1.5,TC:1},
-      bel:{min:{T:.2,E:.05,TC:.05},max:{T:1,E:.3,TC:.3},w:{T:1,E:1,TC:1}},
-      sigma:orch?P.noise/2:P.noise,attn:orch?3:P.attn,netattn:orch?1:P.netattn,
+    return{p,orch,kmul:{T:1,E:1,TC:P[p.id+'AI']|| (orch?P.ai:1)},x:Object.fromEntries(DIMS.map(d=>[d,P['x0'+d]])),
+      bel:Object.fromEntries([['min','belMin'],['max','belMax'],['w','belW']].map(([b,key])=>[b,Object.fromEntries(DIMS.map(d=>[d,P[key+d]]))])),
+      learns:!!P[p.id+'Learns'],sigma:P.noise*P[p.id+'Noise'],attn:P[p.id+'Attn']<0?(orch?3:P.attn):P[p.id+'Attn'],netattn:P[p.id+'Net']<0?(orch?1:P.netattn):P[p.id+'Net'],
       r:rng(seed*31+p.id.length*7+(orch?3:0)),hr:rng(seed*17+1),
       bank:P.bank0,alive:true,why:'',fails:0,lastMain:null,
       // Stakeholder facing this firm (identical start for every firm).
-      sh:{bank:3,x:{E:1,TC:1},belPay:.4,belCoop:.03},
+      sh:{minBank:P.shbank0,bank:P.shbank0,x:{E:P.shE0,TC:P.shTC0},belPay:P.shBelPay,belE:P.shBelE,belCoop:P.shBelCoop},
       ok:0,reneg:0,reinno:0,waste:0,spendAll:0,surplus:0,bankS:[],allocS:[],statS:[],log:[]};
   });
-  let ibExtra=0;const envS=[];
+  let ibExtra=0,cExtra=0;const envS=[];
   for(let t=0;t<P.periods;t++){
-    const IB=clamp(logistic(t,P.ibsize,P.ibspeed,30)+ibExtra,0,1.5);
-    const C=logistic(t,P.csize,P.cspeed,30);
+    const IB=clamp(logistic(t,P.ibsize,P.ibspeed,P.midpoint)+ibExtra,0,P.ibcap);
+    const C=logistic(t,P.csize,P.cspeed,P.midpoint)+cExtra;
     const rise=P.floorrise*t;
-    const fmin={};DIMS.forEach(d=>fmin[d]=Math.min(mk.min[d]+rise,.9*mk.max[d]+(d==='T'?P.drift*t*.9:0)));
+    const fmin={};DIMS.forEach(d=>fmin[d]=Math.min(mk.min[d]+rise,P.floorcap*(mk.max[d]+(d==='T'?P.drift*t:0))));
     const fmax={...mk.max,T:mk.max.T+P.drift*t};
     const R=P.rule==='shift'?(t<P.periods/2?'human':'agent'):P.rule;
     const ctx=shock[t];
-    let w=R==='agent'?{T:1,E:.2,TC:1}:R==='tcbuyer'?{T:.8,E:0,TC:1.6}:{T:1,E:1,TC:1};
-    if(ctx)w={T:w.T*.4,E:w.E,TC:w.TC*1.8};
+    let w=Object.fromEntries(DIMS.map(d=>[d,P[R+'W'+d]]));
+    if(ctx)DIMS.forEach(d=>w[d]*=P['ctx'+d]);
     // Floors this evaluator actually enforces (what a learning firm can discover).
-    const enf=d=>R==='persona'?0:R==='agent'?(d==='E'?0:1.1*fmin[d]):R==='tcbuyer'?(d==='E'?0:fmin[d]):fmin[d];
-    const aug={T:C*.15*P.operant,E:P.valence*IB*.15,TC:IB*.15-P.exofric};
-    const payFloor=P.payfloor+rise*4;
+    const enf=d=>R==='persona'?P.personafloor*fmin[d]:R==='agent'?(d==='E'?0:P.agentfloor*fmin[d]):R==='tcbuyer'?(d==='E'?0:fmin[d]):fmin[d];
+    const aug={T:C*P.augT*P.operant,E:P.valence*IB*P.augE,TC:IB*P.augTC-P.exofric};
+    const payFloor=P.payfloor+rise*P.payrise;
+    const coopFloor=P.coopfloor+rise*P.cooprise,eFloor=P.efloor+rise*P.erise;
     envS.push({IB,C,fT:fmin.T,fE:fmin.E,ctx});
     let formalizedThisPeriod=0;
     for(const f of F){
       if(!f.alive){f.bankS.push(null);f.allocS.push({T:0,E:0,TC:0});f.statS.push('dead');continue}
       const L=wantTrace?f.log:null;
-      const u={};DIMS.forEach(d=>u[d]=util(d,f.x[d],f.kmul[d]));
-      const seen=d=>u[d]+f.netattn*aug[d];
+      const u={};DIMS.forEach(d=>u[d]=util(d,f.x[d],f.kmul[d],P));
+      const seen=d=>u[d]*(d==='T'?P.operant:1)+f.netattn*aug[d];
       // ---- Stage 1: allocate
       const spend=Math.min(f.bank,P.spend),a={T:0,E:0,TC:0};let mode='';
-      if(f.bank<P.triage){a.T=spend;mode='triage'}
+      const below=DIMS.filter(d=>seen(d)<f.bel.min[d]*P.repair);
+      if(below.length){below.forEach(d=>a[d]=spend/below.length);mode='repair '+below.join('+')}
+      else if(f.bank<P.triage){a.T=spend;mode='triage'}
       else{
-        const below=DIMS.filter(d=>seen(d)<f.bel.min[d]*1.05);
-        if(below.length){below.forEach(d=>a[d]=spend/below.length);mode='repair '+below.join('+')}
-        else if(f.p.id==='tech'){a.T=spend;mode='T'}
+        if(f.p.id==='tech'){a.T=spend;mode='T'}
         else if(f.p.id==='bal'){DIMS.forEach(d=>a[d]=spend/3);mode='split'}
         else{
           let best=null,bs=0;
-          DIMS.forEach(d=>{const s=seen(d)<f.bel.max[d]?Math.max(0,f.bel.w[d])*slope(d,f.x[d],f.kmul[d]):0;if(s>bs){bs=s;best=d}});
-          if(best&&bs>.08){a[best]=spend;mode='hunt '+best}else mode='save';
+          DIMS.forEach(d=>{const s=seen(d)<f.bel.max[d]?Math.max(0,f.bel.w[d])*slope(d,f.x[d],f.kmul[d],P)*(d==='T'?P.operant:1):0;if(s>bs){bs=s;best=d}});
+          if(best&&bs>P.hurdle){a[best]=spend;mode='hunt '+best}else mode='save';
         }
       }
       const used=a.T+a.E+a.TC;
-      DIMS.forEach(d=>{if(a[d]>0&&u[d]+aug[d]>=fmax[d])f.waste+=a[d]});
+      DIMS.forEach(d=>{if(a[d]>0&&u[d]*(d==='T'?P.operant:1)+aug[d]>=fmax[d])f.waste+=a[d]});
       f.spendAll+=used;
       const main=used>0?DIMS.reduce((m,d)=>a[d]>a[m]?d:m,'T'):f.lastMain;
       const pivoted=f.lastMain&&main&&main!==f.lastMain;
       f.lastMain=main;
-      DIMS.forEach(d=>{const dep=.03+(d==='E'?P.edecay:0);f.x[d]=f.x[d]*(1-dep)+a[d]*P.dyncap*(pivoted?1-P.pivot:1)});
+      DIMS.forEach(d=>{const dep=Math.min(1,P.depreciation+(d==='E'?P.edecay:0));f.x[d]=f.x[d]*(1-dep)+a[d]*P.dyncap*(pivoted?1-P.pivot:1)});
       f.bank-=used;
       // ---- Stage 2: augmentation
-      const v={};DIMS.forEach(d=>v[d]=util(d,f.x[d],f.kmul[d])+aug[d]);
-      v.T=util('T',f.x.T,1)*P.operant+aug.T;
+      const v={};DIMS.forEach(d=>v[d]=util(d,f.x[d],f.kmul[d],P)+aug[d]);
+      v.T=util('T',f.x.T,1,P)*P.operant+aug.T;
       // ---- Stage 3: valuation
       const human=R==='human';
-      const per={};DIMS.forEach(d=>per[d]=human?v[d]*(1+.1*gauss(f.hr)):v[d]);
+      const per={};DIMS.forEach(d=>per[d]=human?v[d]*(1+P.pernoise*gauss(f.hr)):v[d]);
       const V=DIMS.reduce((s,d)=>s+w[d]*clamp(per[d],0,fmax[d]),0);
       const floorSum=DIMS.reduce((s,d)=>s+fmin[d]*(R==='agent'&&d==='E'?0:1),0);
       let broke=[];let status='',rounds=0;
@@ -331,29 +467,35 @@ function simulate(seed,P,wantTrace){
       else{broke=DIMS.filter(d=>enf(d)>0&&per[d]<enf(d));
         if(!broke.length&&(R==='human'||R==='persona')&&V<floorSum)broke=['total']}
       // Stakeholder upkeep: income, capability decay, and deal-breaker repair on its own side.
-      const sh=f.sh;sh.bank+=P.income;sh.x.E*=1-(.03+P.edecay);sh.x.TC*=.97;
+      const sh=f.sh;sh.bank+=P.income;sh.x.E*=Math.max(0,1-P.depreciation-P.edecay);sh.x.TC*=1-P.depreciation;
       if(broke.length){
         status='reinnovate';
         // Deal-breaker signal: every firm learns which floor broke.
-        broke.forEach(d=>{if(d!=='total')f.bel.min[d]+=P.lr*(enf(d)*1.05+f.sigma*.5*gauss(f.r)-f.bel.min[d])});
-        if(broke[0]==='total')DIMS.forEach(d=>f.bel.min[d]*=1.04);
+        if(f.learns)broke.forEach(d=>{if(d!=='total')f.bel.min[d]+=P.lr*(enf(d)*P.repair+f.sigma*P.breaknoise*gauss(f.r)-f.bel.min[d])});
+        if(f.learns&&broke[0]==='total')DIMS.forEach(d=>f.bel.min[d]*=P.totalbump);
         if(L)L.push(`t${t}: ${mode}; stakeholder rejects (${broke[0]==='total'?'total value below floors':'deal-breaker: '+broke.join(', ')+(human&&broke[0]==='TC'&&per.TC<P.abort?' (friction abort)':'')})`);
       }else{
         // ---- Stage 4: reciprocal package
         const dep=V/(V+P.alt+1e-9);
         // Stakeholder repairs advocacy and cooperation it believes are below the firm's floors.
-        const uE=()=>util('E',sh.x.E,1)*.5,uTC=()=>util('TC',sh.x.TC,1)*.5+C*.1;
-        if(uTC()<sh.belCoop*1.05&&sh.bank>.3){sh.x.TC+=.5;sh.bank-=.3}
-        if(dep>.5&&sh.bank>1)sh.x.E+=.2*dep,sh.bank-=.1;
-        const V$=V*P.rate,cap=Math.min(.9*V$,sh.bank);
-        let pay=Math.min(cap,sh.belPay+P.share*dep*Math.max(0,.9*V$-sh.belPay));
-        // ---- Stages 5-6: return trip, valuation, negotiation loop
-        const judge=()=>{const coop=uTC();return{coop,pass:pay>=payFloor&&coop>=P.coopfloor}};
+        const uE=()=>util('E',sh.x.E,1,P)*P.shEScale,uTC=()=>util('TC',sh.x.TC,1,P)*P.shTCScale+C*P.returnTC;
+        const invest=d=>{if(sh.bank<P.shCost)return false;sh.x[d]+=P.shGain;sh.bank-=P.shCost;return true};
+        if(uTC()<sh.belCoop*P.repair)invest('TC');
+        if(uE()<sh.belE*P.repair)invest('E');
+        if(dep>P.shAdvDep&&sh.bank>P.shAdvBank&&sh.bank>=P.shAdvCost){sh.x.E+=P.shAdvGain*dep;sh.bank-=P.shAdvCost}
+        const V$=V*P.rate,cap=()=>Math.max(0,Math.min(P.maxshare*V$,sh.bank));
+        let pay=Math.min(cap(),sh.belPay+P.share*dep*Math.max(0,P.maxshare*V$-sh.belPay));
+        // Every repair reduces the payment capacity; consent requires all return floors.
+        const judge=()=>({coop:uTC(),advocacy:uE(),pass:pay>=payFloor&&uTC()>=coopFloor&&uE()>=eFloor&&pay<=cap()});
         let j=judge();
         while(!j.pass&&rounds<P.rounds){
           rounds++;
-          if(pay<payFloor){const np=Math.min(cap,pay+.15*V$);sh.belPay+=P.lr*(Math.max(pay,np)-sh.belPay);pay=np}
-          if(j.coop<P.coopfloor&&sh.bank>.3){sh.x.TC+=.5;sh.bank-=.3;sh.belCoop+=P.lr*(P.coopfloor-sh.belCoop)}
+          sh.belPay+=P.lr*(payFloor-sh.belPay);
+          sh.belCoop+=P.lr*(coopFloor-sh.belCoop);
+          sh.belE+=P.lr*(eFloor-sh.belE);
+          if(j.coop<coopFloor)invest('TC');
+          if(j.advocacy<eFloor)invest('E');
+          pay=Math.min(cap(),pay<payFloor?pay+P.renegstep*V$:pay);
           j=judge();
         }
         if(j.pass){
@@ -362,32 +504,34 @@ function simulate(seed,P,wantTrace){
           f.bank+=pay+P.conv*nonCash;sh.bank-=pay;f.surplus+=V$-pay;
           f.ok++;if(rounds)f.reneg++;formalizedThisPeriod++;
           // An economizing stakeholder probes a little lower next time when it has options.
-          sh.belPay+=P.lr*(pay-sh.belPay);if(dep<.6)sh.belPay*=.97;
-          const great=pay>=1.3*payFloor;
+          sh.belPay+=P.lr*(pay-sh.belPay);if(dep<P.depcut)sh.belPay*=P.probe;
+          const great=pay>=P.great*payFloor;
           if(L)L.push(`t${t}: ${mode}; value ${V.toFixed(2)}, pay ${pay.toFixed(2)} vs floor ${payFloor.toFixed(2)} → ${rounds?'formalized after '+rounds+' round'+(rounds>1?'s':''):(great?'great':'OK')+', formalized'}`);
         }else{
           status='reinnovate';
           // The firm learns its package is not valued enough to fund its floor: raise believed weights' bar.
-          DIMS.forEach(d=>f.bel.min[d]*=1.02);
-          if(L)L.push(`t${t}: ${mode}; value ${V.toFixed(2)}; best pay ${pay.toFixed(2)} < floor ${payFloor.toFixed(2)} after ${rounds} round${rounds===1?'':'s'} → reinnovate`);
+          if(f.learns)DIMS.forEach(d=>f.bel.min[d]*=P.paybump);
+          if(L)L.push(`t${t}: ${mode}; value ${V.toFixed(2)}; return pay ${pay.toFixed(2)} / floor ${payFloor.toFixed(2)}, advocacy ${j.advocacy.toFixed(2)} / ${eFloor.toFixed(2)}, cooperation ${j.coop.toFixed(2)} / ${coopFloor.toFixed(2)} after ${rounds} round${rounds===1?'':'s'} → reinnovate`);
         }
       }
       // Firm learning from the signal on attended dimensions (absorptive capacity).
-      const order=[...DIMS].sort((m,n)=>(a[n]+f.x[n]*.01)-(a[m]+f.x[m]*.01));
-      order.slice(0,f.attn).forEach(d=>{
+      const order=[...DIMS].sort((m,n)=>(a[n]+f.x[n]*P.attnstock)-(a[m]+f.x[m]*P.attnstock));
+      if(f.learns)order.slice(0,f.attn).forEach(d=>{
         f.bel.max[d]+=P.lr*(fmax[d]+f.sigma*gauss(f.r)-f.bel.max[d]);
         f.bel.min[d]+=P.lr*(enf(d)+f.sigma*gauss(f.r)-f.bel.min[d]);
         f.bel.w[d]+=P.lr*(w[d]+f.sigma*gauss(f.r)-f.bel.w[d]);
       });
+      sh.minBank=Math.min(sh.minBank,sh.bank);
       if(status==='reinnovate'){f.reinno++;f.fails++}else f.fails=0;
       if(f.fails>P.tol){f.alive=false;f.why='terminated';status='term';if(L)L.push(`t${t}: firm terminates the relationship after ${f.fails} straight no-deal periods`)}
       if(f.bank<=1e-9){f.alive=false;f.bank=0;f.why='bankrupt';status='term';if(L)L.push(`t${t}: resource bank exhausted, firm exits`)}
       f.bankS.push(f.bank);f.allocS.push(a);f.statS.push(status);
     }
-    ibExtra+=P.coevo*formalizedThisPeriod;
+    ibExtra+=P.coevo*formalizedThisPeriod;cExtra+=P.ccoevo*formalizedThisPeriod;
   }
   const out={env:envS};
   F.forEach(f=>out[f.p.id]={bank:f.bankS,alloc:f.allocS,stat:f.statS,alive:f.alive,why:f.why,ok:f.ok,reneg:f.reneg,reinno:f.reinno,waste:f.waste,spendAll:f.spendAll,surplus:f.surplus,log:f.log,
+    partnerBank:f.sh.bank,partnerMinBank:f.sh.minBank,beliefs:f.bel,
     final:f.bankS.filter(v=>v!==null).slice(-1)[0]??0,periods:f.statS.filter(s=>s!=='dead').length});
   return out;
 }
@@ -398,10 +542,11 @@ const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim
 const COL={tech:'--t',bal:'--muted',slope:'--e',orch:'--tc'};
 const DASH={tech:[],bal:[4,4],slope:[],orch:[]};
 function prep(cv){const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;cv.width=w*dpr;cv.height=h*dpr;const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);return{c,w,h}}
-function axes(c,w,h,pad,ymax,ylab){
+function axes(c,w,h,pad,ymax,ylab,timeTicks=true){
   c.strokeStyle=css('--rule');c.fillStyle=css('--muted');c.font='11px '+css('--mono');c.lineWidth=1;
   const ticks=4;for(let i=0;i<=ticks;i++){const v=ymax*i/ticks,y=h-pad.b-(h-pad.t-pad.b)*i/ticks;c.beginPath();c.moveTo(pad.l,y);c.lineTo(w-pad.r,y);c.stroke();c.textAlign='right';c.fillText(v.toFixed(ymax<5?1:0),pad.l-6,y+4)}
   c.textAlign='left';c.fillText(ylab,pad.l,pad.t-6);
+  if(!timeTicks)return;
   c.textAlign='center';const P=S.periods;for(let i=0;i<=P;i+=P>60?20:10){const xx=pad.l+(w-pad.l-pad.r)*i/P;c.fillText(String(i),xx,h-pad.b+16)}
 }
 function drawBank(res){
@@ -436,49 +581,130 @@ function drawEnv(res){
   [['IB','--accent',1,[]],['C','--tc',1,[]],['fT','--t',.55,[5,4]],['fE','--e',.55,[5,4]]].forEach(([k,col,al,da])=>{
     c.globalAlpha=al;c.strokeStyle=css(col);c.lineWidth=2;c.setLineDash(da);c.beginPath();e.forEach((o,i)=>i?c.lineTo(X(i),Y(o[k])):c.moveTo(X(i),Y(o[k])));c.stroke();c.setLineDash([]);c.globalAlpha=1});
 }
-const N=200;
 function summary(){
-  const agg={};POL.forEach(p=>agg[p.id]={surv:0,ok:0,per:0,reneg:0,reinno:0,term:0,waste:0,spend:0,fin:0,sur:0});
-  for(let s=1;s<=N;s++){const r=simulate(s*9973,S,false);POL.forEach(p=>{const a=agg[p.id],q=r[p.id];a.surv+=q.alive?1:0;a.ok+=q.ok;a.per+=q.periods;a.reneg+=q.reneg;a.reinno+=q.reinno;a.term+=q.why==='terminated'?1:0;a.waste+=q.waste;a.spend+=q.spendAll;a.fin+=q.final;a.sur+=q.surplus})}
-  const rows=POL.map(p=>{const a=agg[p.id];return{p,surv:a.surv/N,ok:a.per?a.ok/a.per:0,reneg:a.ok?a.reneg/a.ok:0,reinno:a.reinno/N,term:a.term/N,waste:a.spend?a.waste/a.spend:0,fin:a.fin/N,sur:a.sur/N}});
+  const N=S.markets,rows=summarize(S);
+  ['nruns','nruns2'].forEach(id=>document.getElementById(id).textContent=N);
   const bestFin=Math.max(...rows.map(r=>r.fin)),bestSurv=Math.max(...rows.map(r=>r.surv));
   const pct=v=>(100*v).toFixed(0)+'%';
   document.getElementById('summary').innerHTML=rows.map(r=>`<tr><td><i class="sw" style="background:var(${COL[r.p.id]})"></i> ${r.p.name}</td><td class="${r.surv===bestSurv?'best':''}">${pct(r.surv)}</td><td>${pct(r.ok)}</td><td>${pct(r.reneg)}</td><td>${r.reinno.toFixed(1)}</td><td>${pct(r.term)}</td><td>${pct(r.waste)}</td><td class="${r.fin===bestFin?'best':''}">${r.fin.toFixed(1)}</td><td>${r.sur.toFixed(1)}</td></tr>`).join('');
 }
 let res;
-function run(){res=simulate(S.seed,S,true);document.getElementById('seed').textContent=S.seed;drawBank(res);drawAlloc(res);drawEnv(res)}
+function run(){res=simulate(S.seed,S,true);document.getElementById('seed-display').textContent=S.seed;drawBank(res);drawAlloc(res);drawEnv(res)}
 let tid=null;
-function all(){run();clearTimeout(tid);tid=setTimeout(summary,60)}
+function all(){shareURL();markSweepStale();run();clearTimeout(tid);tid=setTimeout(summary,60)}
 
 // ---------- controls
+const status=document.getElementById('settings-status');
+function shareURL(){
+  const q=new URLSearchParams(changedSettings(S)).toString();
+  try{history.replaceState(null,'',location.pathname+(q?'?'+q:'')+location.hash)}catch(e){status.textContent='This browser cannot update the address; JSON sharing still works.'}
+  if(!document.getElementById('link-box').hidden)document.getElementById('settings-link').value=location.href;
+  if(!document.getElementById('export-box').hidden)document.getElementById('settings-json').value=JSON.stringify(changedSettings(S),null,2);
+}
+Object.assign(S,settings(Object.fromEntries(new URLSearchParams(location.search))));
+POL.forEach(p=>{
+  const section=document.createElement('details');section.className='stage';
+  const title=document.createElement('summary');title.textContent=p.name;section.appendChild(title);
+  const body=document.createElement('div');body.className='stagebody';body.id='gf-'+p.id;section.appendChild(body);document.getElementById('firms').appendChild(section);
+});
 CTL.forEach(([id,g,label,role,min,max,step,def,help,fmt])=>{
   const box=document.createElement('div');box.className='ctl';
-  box.innerHTML=`<label for="${id}"><span>${label}<span class="role">${role}</span></span><output id="${id}-o"></output></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${def}"><small>${help}</small>`;
+  const toggle=id.endsWith('Learns');
+  box.innerHTML=`<label for="${id}"><span>${label}<span class="role">${role}</span></span><output id="${id}-o"></output></label><input type="${toggle?'checkbox':'range'}" id="${id}" min="${min}" max="${max}" step="${step}"><small>${help}</small>`;
   document.getElementById(g).appendChild(box);
-  const el=box.querySelector('input'),o=box.querySelector('output');
-  const set=()=>{S[id]=+el.value;o.textContent=fmt(el.value)};set();
-  el.addEventListener('input',()=>{set();all()});
+  const el=box.querySelector('input');
+  el.addEventListener('input',()=>{S[id]=toggle?+el.checked:+el.value;syncControls();all()});
 });
 const help={
-  human:'Perceives each dimension with some noise, rejects outright when friction is too high, enforces every floor, then needs total value to clear the sum of the floors.',
-  persona:'An AI simulating a human: trades everything off, with no floors, no noise and no friction abort.',
-  agent:'An AI agent buying for a principal: hard floors on T and TC at 110%, little weight on emotional utility, no E floor.',
-  tcbuyer:'A purchasing algorithm: weights TC heavily, registers zero value for emotional utility (the paper\'s commodity example).',
-  shift:'Human evaluators for the first half of the run, then delegated agents. Learning firms have to notice the change.'};
-const RULES=['human','persona','agent','tcbuyer','shift'];
-const setRule=k=>{S.rule=k;RULES.forEach(r=>document.getElementById('rule-'+r).setAttribute('aria-pressed',r===k));document.getElementById('rule-help').textContent=help[k]};
-RULES.forEach(k=>document.getElementById('rule-'+k).addEventListener('click',()=>{setRule(k);all()}));
-setRule(S.rule);
-document.getElementById('reseed').addEventListener('click',()=>{S.seed=Math.floor(Math.random()*1e6);run()});
-document.getElementById('reset').addEventListener('click',()=>{CTL.forEach(c=>{const el=document.getElementById(c[0]);el.value=c[7];el.dispatchEvent(new Event('input'))});setRule('human');S.seed=7;all()});
+  human:'Noisy perception, a friction abort and all dimension floors; total value must clear the sum of the floors. Weights and noise are adjustable in Advanced.',
+  persona:'Trades utility dimensions off, with no noise or friction abort, enforcing only the AI persona screening share of each floor (0 by default). Total value must still clear the sum of market floors.',
+  agent:'Hard floors on T and TC, no E floor or perception noise. Floor multiplier and all value weights are adjustable in Advanced.',
+  tcbuyer:'Enforces T and TC floors; defaults to a heavy TC weight and zero E weight. All weights are adjustable in Advanced.',
+  shift:'Human evaluators for the first half, delegated agents for the second half. Uses their Advanced settings.'};
+function syncControls(){
+  CTL.forEach(c=>{const el=document.getElementById(c[0]);if(el.type==='checkbox'){el.checked=!!S[c[0]];document.getElementById(c[0]+'-o').textContent=el.checked?'Yes':'No'}else{el.value=S[c[0]];document.getElementById(c[0]+'-o').textContent=c[9](S[c[0]])}});
+  RULES.forEach(r=>document.getElementById('rule-'+r).setAttribute('aria-pressed',r===S.rule));document.getElementById('rule-help').textContent=help[S.rule];
+  [...document.getElementById('firmpick').children].forEach((b,i)=>b.setAttribute('aria-pressed',POL[i].id===S.firm));
+}
+RULES.forEach(k=>document.getElementById('rule-'+k).addEventListener('click',()=>{S.rule=k;syncControls();all()}));
+document.getElementById('reseed').addEventListener('click',()=>{S.seed=Math.floor(Math.random()*1e6);syncControls();shareURL();run()});
+document.getElementById('reset').addEventListener('click',()=>{resetSettings(S);syncControls();all()});
 const fp=document.getElementById('firmpick');
-POL.forEach(p=>{const b=document.createElement('button');b.textContent=p.name;b.setAttribute('aria-pressed',p.id===S.firm);b.addEventListener('click',()=>{S.firm=p.id;[...fp.children].forEach(x=>x.setAttribute('aria-pressed',x===b));drawAlloc(res)});fp.appendChild(b)});
-document.getElementById('bank-legend').innerHTML=POL.map(p=>`<span><i class="sw" style="background:var(${COL[p.id]})"></i>${p.name}</span>`).join('');
-const redraw=()=>{if(res){drawBank(res);drawAlloc(res);drawEnv(res)}};
+POL.forEach(p=>{const b=document.createElement('button');b.textContent=p.name;b.addEventListener('click',()=>{S.firm=p.id;syncControls();shareURL();drawAlloc(res)});fp.appendChild(b)});
+const legend=POL.map(p=>`<span><i class="sw" style="background:var(${COL[p.id]})"></i>${p.name}</span>`).join('');
+document.getElementById('bank-legend').innerHTML=legend;
+async function copy(text,what){
+  try{await navigator.clipboard.writeText(text);status.textContent=what+' copied.'}
+  catch(e){
+    status.textContent='Clipboard unavailable. Select and copy the '+what.toLowerCase()+' manually.';
+    const id=what==='Settings link'?'settings-link':'settings-json';
+    document.getElementById(what==='Settings link'?'link-box':'export-box').hidden=false;
+    const field=document.getElementById(id);field.value=text;field.focus();field.select();
+  }
+}
+document.getElementById('copy-link').addEventListener('click',()=>copy(location.href,'Settings link'));
+document.getElementById('export-json').addEventListener('click',()=>{document.getElementById('export-box').hidden=false;document.getElementById('settings-json').value=JSON.stringify(changedSettings(S),null,2);status.textContent='JSON includes every non-default setting. An empty object restores defaults.'});
+document.getElementById('copy-json').addEventListener('click',()=>copy(document.getElementById('settings-json').value,'JSON'));
+document.getElementById('import-json').addEventListener('click',()=>{document.getElementById('import-box').hidden=false;document.getElementById('import-text').focus()});
+document.getElementById('apply-json').addEventListener('click',()=>{
+  try{const next=settings(JSON.parse(document.getElementById('import-text').value),true);Object.assign(S,next);syncControls();all();status.textContent='Settings imported.'}catch(e){status.textContent=e.message+' Settings were kept.'}
+});
+const groups={g1:'1 · Firm builds',g2:'2 · Augmentation',g3:'3 · Stakeholder values',g4:'4 · Stakeholder offer',g5:'5 · Signal',g6:'6 · Firm values',ga:'Advanced'};
+const map=document.getElementById('control-map');
+const mapRow=(cells)=>{const tr=document.createElement('tr');cells.forEach(text=>{const td=document.createElement('td');td.textContent=text;tr.appendChild(td)});map.appendChild(tr)};
+mapRow(['3 · Stakeholder values','Evaluator type (rule)','moderator',Object.values(help).join(' ')]);
+mapRow(['Display','Illustrated firm (firm)','input','Firm selected for the allocation chart and trace; does not affect the model.']);
+CTL.forEach(c=>mapRow([groups[c[1]]||'Firms · '+POL.find(p=>c[1]==='gf-'+p.id).name,c[2]+' ('+c[0]+')',c[3],c[8]]));
+
+// ---------- sweep (same market seeds and chart preparation as the main readouts)
+const sweepSelect=document.getElementById('sweep-control');
+CTL.filter(c=>c[0]!=='seed').forEach(c=>{const option=document.createElement('option');option.value=c[0];option.textContent=(c[1].startsWith('gf-')?POL.find(p=>c[1]==='gf-'+p.id).name+' · ':'')+c[2];sweepSelect.appendChild(option)});
+sweepSelect.value='payfloor';
+function sweepBounds(){const c=CTL.find(c=>c[0]===sweepSelect.value);for(const [id,value] of [['sweep-low',c[4]],['sweep-high',c[5]]]){const el=document.getElementById(id);el.min=c[4];el.max=c[5];el.step=c[6];el.value=value}}
+sweepSelect.addEventListener('change',()=>{sweepBounds();markSweepStale()});sweepBounds();
+['sweep-low','sweep-high','sweep-steps','sweep-metric'].forEach(id=>document.getElementById(id).addEventListener('input',markSweepStale));
+let sweepResult=null,sweepBusy=false;
+function markSweepStale(){if(sweepResult)document.getElementById('sweep-status').textContent='Settings changed. The chart shows the previous sweep; click Run sweep to refresh.'}
+function drawSweep(){
+  if(!sweepResult)return;
+  const {points,metric,label}=sweepResult,cv=document.getElementById('sweep-chart');cv.hidden=false;
+  const {c,w,h}=prep(cv),pad={l:40,r:12,t:22,b:28};
+  const ymax=metric==='fin'?Math.max(1,...points.flatMap(p=>p.rows.map(r=>r[metric]))):1;
+  axes(c,w,h,pad,ymax,metric==='fin'?'final bank':'share',false);
+  const X=i=>pad.l+(w-pad.l-pad.r)*i/(points.length-1),Y=v=>h-pad.b-(h-pad.t-pad.b)*v/ymax;
+  c.fillStyle=css('--muted');c.font='10px '+css('--mono');c.textAlign='center';
+  points.forEach((p,i)=>{if(i===0||i===points.length-1||i===Math.floor(points.length/2))c.fillText(number(p.value),X(i),h-pad.b+16)});
+  POL.forEach((p,j)=>{c.strokeStyle=css(COL[p.id]);c.lineWidth=2.25;c.setLineDash(DASH[p.id]);c.beginPath();points.forEach((q,i)=>i?c.lineTo(X(i),Y(q.rows[j][metric])):c.moveTo(X(i),Y(q.rows[j][metric])));c.stroke();c.setLineDash([]);points.forEach((q,i)=>{c.fillStyle=css(COL[p.id]);c.beginPath();c.arc(X(i),Y(q.rows[j][metric]),2.5,0,7);c.fill()})});
+  cv.setAttribute('aria-label',label+' sweep, metric '+metric+', one line per firm. Exact values are in the table below.');
+}
+document.getElementById('run-sweep').addEventListener('click',async()=>{
+  if(sweepBusy)return;
+  const ctl=CTL.find(c=>c[0]===sweepSelect.value),lo=Number(document.getElementById('sweep-low').value),hi=Number(document.getElementById('sweep-high').value),steps=Number(document.getElementById('sweep-steps').value),metric=document.getElementById('sweep-metric').value;
+  const message=document.getElementById('sweep-status');
+  if(!Number.isFinite(lo)||!Number.isFinite(hi)||lo<ctl[4]||hi>ctl[5]||lo>=hi||!Number.isInteger(steps)||steps<5||steps>11){message.textContent='Choose an increasing range within this control’s limits and 5–11 whole steps.';return}
+  const base={...S},points=[],button=document.getElementById('run-sweep');sweepBusy=true;button.disabled=true;
+  try{
+    for(let i=0;i<steps;i++){
+      message.textContent='Running point '+(i+1)+' of '+steps+'…';await new Promise(resolve=>setTimeout(resolve,0));
+      const value=+(ctl[4]+Math.round((lo+(hi-lo)*i/(steps-1)-ctl[4])/ctl[6])*ctl[6]).toFixed(8);
+      points.push({value,rows:summarize({...base,[ctl[0]]:value})});
+    }
+    sweepResult={points,metric,label:ctl[2]};drawSweep();document.getElementById('sweep-legend').innerHTML=legend;
+    const format=v=>metric==='fin'?v.toFixed(1):(100*v).toFixed(1)+'%';
+    document.getElementById('sweep-results').innerHTML='<table><thead><tr><th>'+ctl[2]+'</th>'+POL.map(p=>'<th>'+p.name+'</th>').join('')+'</tr></thead><tbody>'+points.map(p=>'<tr><td>'+number(p.value)+'</td>'+p.rows.map(r=>'<td>'+format(r[metric])+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+    message.textContent='Finished '+steps+' points, '+base.markets+' markets per point. Values follow the control’s step size; discrete controls may repeat.';
+    if(JSON.stringify(base)!==JSON.stringify(S))markSweepStale();
+  }catch(e){message.textContent='Sweep failed: '+e.message}finally{sweepBusy=false;button.disabled=false}
+});
+document.getElementById('sweep-panel').addEventListener('toggle',()=>{if(document.getElementById('sweep-panel').open&&sweepResult)drawSweep()});
+const redraw=()=>{if(res){drawBank(res);drawAlloc(res);drawEnv(res)}if(sweepResult)drawSweep()};
 window.addEventListener('resize',redraw);
 if(window.matchMedia)matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',redraw);
+syncControls();
+window.__ui={S,CTL,settings,resetSettings,changedSettings,summarize,getSweep:()=>sweepResult};
 all();
 })();
 </script>
+<script src="llm.js"></script>
 </body>
 </html>
